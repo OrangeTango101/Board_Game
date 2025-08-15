@@ -11,8 +11,8 @@ class Game:
     grid_width = 11
     grid_height = 11
     grid = [] 
+    show_display = True
 
-    legal_actions = defaultdict(list) 
     player_turn = 0
 
     def initialize_game(players=[]): 
@@ -25,10 +25,59 @@ class Game:
         Game.rounds = 0
         Game.winner = None
         Game.players = players
+        Game.player_turn = 0 
         Game.active_player = Game.get_active_player()
+        Game.legal_actions = defaultdict(list) 
         Game.legal_actions["p"] = ["p-5-10"] 
 
-    def try_action(action_code): 
+        Game.active_player.choose_action()
+
+    def game_loop():
+        if not Game.test_turn_over(): 
+            Game.active_player.choose_action()
+        Game.test_game_over()
+
+    def next_turn(): 
+        Game.player_turn += 1
+        
+        if Game.player_turn == len(Game.players): 
+            Game.player_turn = 0
+            Game.rounds += 1 
+
+        Game.active_player = Game.get_active_player()
+        Game.active_player.reset_snakes()
+        Game.legal_actions = Game.active_player.get_actions()
+        spawn_cell = Game.grid_search(Game.active_player.spawn_pos)
+        
+        #check if active 
+        if (not spawn_cell.is_empty() and spawn_cell.get_player() != Game.active_player) or not Game.legal_actions: 
+            Game.active_player.active = False
+        
+        if not Game.active_player.active: 
+            Game.active_player.delete_snakes()
+            Game.next_turn()
+
+    def test_turn_over():
+        #end turn if no legal actions 
+        if not Game.legal_actions: 
+            Game.next_turn()
+            return True
+        #continue turn if legal actions, but no pieces on board 
+        if not Game.active_player.snakes: 
+            return False
+        #end turn if all snakes are inactive 
+        if not any([snake.active for snake in Game.active_player.snakes]): 
+            Game.next_turn()
+            return True 
+        #continue turn if legal actions and active snakes 
+        return False 
+        
+    def test_game_over(): 
+        if sum([player.active for player in Game.players]) == 1: 
+            print(f"Game Over, Winner: {Game.active_player.player_name}")  
+            Game.winner = Game.active_player 
+
+    def run_action(action_code): 
         action = action_code.split("-")
         action_type = action[0]
 
@@ -44,69 +93,9 @@ class Game:
                 Game.grid_search((int(action[3]), int(action[4]))).snake.moved()
             if action_type == "r": 
                 cell_to_roll = Game.grid_search((int(action[1]), int(action[2]))) 
-                cell_to_roll.roll()
-                
-            Game.update_game_state()    
-
-    def update_game_state(): 
-        active_snakes = any([snake.active for snake in Game.active_player.snakes]) 
-
-        if not active_snakes: 
-            Game.next_turn()
-            Game.test_over()
-        else: 
-            Game.legal_actions = Game.active_player.get_actions() 
-
-    def next_turn(): 
-        Game.player_turn += 1
-        
-        if Game.player_turn == len(Game.players): 
-            Game.player_turn = 0
-            Game.rounds += 1 
-
-
-        Game.active_player = Game.get_active_player()
-        Game.active_player.reset_snakes()
-        Game.legal_actions = Game.active_player.get_actions()
-        spawn_cell = Game.grid_search(Game.active_player.spawn_pos)
-        
-        #check if active 
-        if (not spawn_cell.is_empty() and spawn_cell.get_player() != Game.active_player) or not Game.legal_actions: 
-            Game.active_player.active = False
-        
-        if Game.active_player.active: 
-            Game.active_player.take_turn()
-        else: 
-            Game.active_player.delete_snakes()
-            Game.next_turn()
-        
-    def test_over(): 
-        if sum([player.active for player in Game.players]) == 1: 
-            print(f"Game Over, Winner: {Game.active_player.player_name}")  
-            Game.winner = Game.active_player 
-        
-    def make_grid():
-        Game.grid = []
-        for i in range(Game.grid_width): 
-            for j in range(Game.grid_height): 
-                Game.grid.append(Cell((i, j)))
-        
-    def display_game():   
-        Game.display_screen.fill((255, 255, 255))
-        for player in Game.players:
-            player.display()
-
-        for cell in Game.grid: 
-            cell.display()
-        
-        Actions.display()
-
-        text_surface = Game.text_font.render(f"Turn: {Game.active_player.player_name}", True, (0,0,0))
-        Game.display_screen.blit(text_surface, (570, 50))
-        text_surface2 = Game.text_font2.render(f"Pieces: {Game.active_player.num_pieces}", True, (0,0,0))
-        Game.display_screen.blit(text_surface2, (570, 100))
-        
-        pygame.display.flip()
+                cell_to_roll.roll()   
+            
+            Game.legal_actions = Game.active_player.get_actions()
 
     def add_piece_to_grid(player, pos, value): 
         new_piece = Game.grid_search(pos) 
@@ -160,6 +149,9 @@ class Game:
 
     def grid_search(pos): 
         return Game.grid[pos[0]*Game.grid_height+pos[1]]
+    
+    def any_grid_search(pos, grid): 
+        return grid[pos[0]*Game.grid_height+pos[1]]
 
     def get_selected_cell(mouse_pos):  
         for cell in Game.grid: 
@@ -173,7 +165,55 @@ class Game:
 
     def get_player(index):
         return Game.players[index]
+    
+    def make_grid():
+        Game.grid = []
+        for i in range(Game.grid_width): 
+            for j in range(Game.grid_height): 
+                Game.grid.append(Cell((i, j)))
+    
+    def get_game_state(player): 
+        game_state = []
+        for cell in Game.grid: 
+            if cell.is_empty():
+                game_state.append(0)
+            elif cell.get_player() == player: 
+                game_state.append(cell.value)
+            else: 
+                game_state.append(-cell.value)
+        return game_state
 
+    def display_state(state): 
+        rows = 11
+        cols = len(state) // rows
+
+        grid = [[0] * cols for _ in range(rows)]
+
+        for i, num in enumerate(state):
+            row = i % rows
+            col = i // rows
+            grid[row][col] = num
+
+        for row in grid:
+            print(" ".join(f"{num:2}" for num in row))
+
+    def display_game():   
+        Game.display_screen.fill((255, 255, 255))
+        for player in Game.players:
+            player.display()
+
+        for cell in Game.grid: 
+            cell.display()
+        
+        Actions.display()
+
+        text_surface = Game.text_font.render(f"Turn: {Game.active_player.player_name}", True, (0,0,0))
+        Game.display_screen.blit(text_surface, (570, 50))
+        text_surface2 = Game.text_font2.render(f"Pieces: {Game.active_player.num_pieces}", True, (0,0,0))
+        Game.display_screen.blit(text_surface2, (570, 100))
+        
+        pygame.display.flip()
+    
 class Player: 
     
     def __init__(self, id, spawn_pos, num_pieces, color, name): 
@@ -206,8 +246,14 @@ class Player:
             actions["r"].extend(snake.get_legal_rolls())
             
         return actions
+    
+    def total_pieces(self): 
+        total = 0
+        for snake in self.snakes:
+            total += len(snake.cells)
+        return total
 
-    def take_turn(self): 
+    def choose_action(self): 
         ...
 
     def remove_snake(self, snake):
@@ -423,19 +469,19 @@ class Actions:
         if event.button == 1: 
             
             if selected_cell.is_empty(): 
-                Game.try_action(Actions.translate_placement(selected_cell.pos))
+                Game.run_action(Actions.translate_placement(selected_cell.pos))
             else: 
-                Game.try_action(Actions.translate_roll(selected_cell.pos))
+                Game.run_action(Actions.translate_roll(selected_cell.pos))
                 
         if event.button == 3: 
             if Actions.store_input: 
-                Game.try_action(Actions.translate_movement(Actions.store_input, selected_cell.pos))
+                Game.run_action(Actions.translate_movement(Actions.store_input, selected_cell.pos))
                 Actions.store_input = None 
             elif selected_cell.get_player() == Game.active_player: 
                 Actions.store_input = selected_cell.pos
 
     def space_action(event): 
-        print(Game.legal_actions) 
+        Game.show_display = not Game.show_display 
     
     def translate_movement(pos1, pos2): 
         return "m"+"-"+str(pos1[0])+"-"+str(pos1[1])+"-"+str(pos2[0])+"-"+str(pos2[1])
