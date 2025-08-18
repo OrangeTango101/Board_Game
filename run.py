@@ -17,7 +17,6 @@ while running:
     User.register_events()
 
     Game.game_loop()
-    Game.display_game()
 
     if User.close_game or Game.winner: 
         running = False

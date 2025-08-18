@@ -16,7 +16,7 @@ class Game:
     player_turn = 0
 
     def initialize_game(players=[]): 
-        Game.update_game_state()
+        Game.game_state = Game.get_game_state(Game.players[0].snakes, Game.players[1].snakes)
         Game.display_screen = pygame.display.set_mode((Game.display_width, Game.display_height))
         Game.value_font = pygame.font.SysFont(None, 20)
         Game.text_font = pygame.font.SysFont(None, 40)
@@ -27,20 +27,22 @@ class Game:
         Game.players = players
         Game.player_turn = 0 
         Game.active_player = Game.get_active_player()
+        Game.legal_actions = defaultdict(list) 
+        Game.legal_actions["p"] = ["p-5-10"] 
 
         Game.active_player.choose_action()
 
     def game_loop():
-        Game.game_state = Game.get_game_state(Game.players)
-        legal_actions = Game.active_player.get_actions()
+        if not Game.test_turn_over(): 
+            Game.active_player.choose_action()
+        Game.test_game_over()
 
-        if not Game.test_turn_over(legal_actions): 
-            Game.active_player.choose_action(legal_actions)
-        Game.test_game_over(legal_actions)
+        if Game.show_display:
+            Game.display_game()
 
-    def test_turn_over(legal_actions):
+    def test_turn_over():
         #end turn if no legal actions 
-        if not legal_actions: 
+        if not Game.legal_actions: 
             Game.next_turn()
             return True
         #continue turn if legal actions, but no pieces on board 
@@ -67,13 +69,11 @@ class Game:
 
         Game.active_player = Game.get_active_player()
 
-
         Game.active_player.activate_pieces()
         Game.legal_actions = Game.active_player.get_actions()
-        spawn_cell = Game.grid_search(Game.active_player.spawn_pos)
         
         #check if active 
-        if (not spawn_cell.is_empty() and spawn_cell.get_player() != Game.active_player) or not Game.legal_actions: 
+        if Game.active_player.spawn_pos in Game.get_inactive_player().pieces or not Game.legal_actions: 
             Game.active_player.active = False
         
         #move to next player and remove current player if inactive 
@@ -100,6 +100,7 @@ class Game:
                 cell_to_roll.roll()   
             
             Game.legal_actions = Game.active_player.get_actions()
+            Game.game_state = Game.get_game_state(Game.players[0].snakes, Game.players[1].snakes)
 
     def add_piece_to_grid(player, pos, value): 
         new_piece = Game.grid_search(pos) 
@@ -151,11 +152,11 @@ class Game:
     def valid_search_pos(pos): 
         return pos[0] >= 0 and pos[0] <= Game.grid_width-1 and pos[1] >= 0 and pos[1] <= Game.grid_height-1
 
-    def grid_search(pos): 
-        return Game.grid[pos[0]*Game.grid_height+pos[1]]
+    def grid_search(pos, grid): 
+        return grid[Game.pos_to_grid_index(pos)]
     
-    def any_grid_search(pos, grid): 
-        return grid[pos[0]*Game.grid_height+pos[1]]
+    def pos_to_grid_index(pos): 
+        return pos[0]*Game.grid_height+pos[1]
 
     def get_selected_cell(mouse_pos):  
         for cell in Game.grid: 
@@ -166,14 +167,24 @@ class Game:
 
     def get_active_player(): 
         return Game.players[Game.player_turn]
+    
+    def get_inactive_player(): 
+        return Game.players[(Game.player_turn+1)%2 ]
 
     def get_player(index):
         return Game.players[index]
     
-    def get_game_state(players): 
-        ...
+    def get_game_state(p1_pieces, p2_pieces): 
+        grid = [0]*(Game.grid_width*Game.grid_height)
 
-    def display_state(state): 
+        for piece, data in p1_pieces.items(): 
+            grid[Game.pos_to_grid_index(piece)] = data[0] 
+        for piece, data in p2_pieces.items(): 
+            grid[Game.pos_to_grid_index(piece)] = -data[0]
+        return grid
+
+
+    def print_state(state): 
         rows = 11
         cols = len(state) // rows
 
@@ -192,8 +203,8 @@ class Game:
         for player in Game.players:
             player.display()
 
-        for cell in Game.grid: 
-            cell.display()
+        for cell in Game.game_state: 
+            ...
         
         Actions.display()
 
@@ -221,32 +232,27 @@ class Player:
         #{(piece_coords): (value, is_active, snake_id)}
         #pieces = {(0,1): (6,True,1), (2,2): (6,True,1), (3,4): (6,True,1), (5,5): (6,True,2), (9,7): (6,True,2), ...}
         self.pieces = {}
+
+    def choose_action(self): 
+        ...
         
     def get_actions(self):
         actions = defaultdict(list) 
         
         if not self.active:
             return []
+        
+        if self.spawn_pos not in self.pieces: 
+            actions["p"].append(Actions.translate_placement(self.spawn_pos))
 
         #get placements
-        spawn_cell = Game.grid_search(self.spawn_pos)
-        spawn_snake = spawn_cell.snake if spawn_cell.get_player() == Game.active_player else None 
-        if self.num_pieces > 0: 
-            if not spawn_snake: 
-                actions["p"].append(Actions.translate_placement(self.spawn_pos))
-            elif spawn_snake.active:  
-                actions["p"].extend(Actions.translate_placement_batch(spawn_snake.get_empty_perimeter()))
-
-        #get movements and rolls 
-        for snake in self.snakes:
-            actions["m"].extend(snake.get_legal_movements()) 
-            actions["r"].extend(snake.get_legal_rolls())
+        for snake in self.snakes.values():
+            snake_actions = Snake.get_actions(snake)
+            actions["p"].extend(snake_actions["p"])
+            actions["m"].extend(snake_actions["m"])
+            actions["r"].extend(snake_actions["r"])
             
         return actions
-
-    def choose_action(self): 
-        ...
-
 
     #Snake methods
     def remove_snake(self, snake):
@@ -275,6 +281,9 @@ class Player:
 # TODO: Make Snake class static such that it returns legal actions given a snake dictionary 
 
 class Snake: 
+
+    def get_actions(snake): 
+        ... 
 
     def get_legal_movements(self):
         actions = []
@@ -368,24 +377,24 @@ class Snake:
         
         return Snake(player, combined_cells, active, rolls) 
     
+    def get_perim(snake):
+        ...
+
     def is_active(pieces, player): 
         ... 
 
 class Piece:
     rel_edge_positions = [(1,0), (-1,0), (0,1), (0,-1)]
-
-    def get_actions(pos, player): 
-        ... 
     
-    def get_connections(pos, player): 
-        if pos not in player.pieces: 
+    def get_connections(pos, pieces): 
+        if pos not in pieces: 
             return[]
-        return [(pos[0]+rel_edge[0], pos[1]+rel_edge[1]) for rel_edge in Piece.rel_edge_position if Game.valid_search_pos((pos[0]+rel_edge[0], pos[1]+rel_edge[1])) and (pos[0]+rel_edge[0], pos[1]+rel_edge[1]) in player.pieces]
+        return [(pos[0]+rel_edge[0], pos[1]+rel_edge[1]) for rel_edge in Piece.rel_edge_position if Game.valid_search_pos((pos[0]+rel_edge[0], pos[1]+rel_edge[1])) and (pos[0]+rel_edge[0], pos[1]+rel_edge[1]) in pieces]
         
-    def get_non_connections(pos, player):
-        if pos not in player.pieces: 
+    def get_non_connections(pos, pieces):
+        if pos not in pieces: 
             return Piece.get_adjacent(pos)
-        return [(pos[0]+rel_edge[0], pos[1]+rel_edge[1]) for rel_edge in Piece.rel_edge_position if Game.valid_search_pos((pos[0]+rel_edge[0], pos[1]+rel_edge[1])) and (pos[0]+rel_edge[0], pos[1]+rel_edge[1]) not in player.pieces]
+        return [(pos[0]+rel_edge[0], pos[1]+rel_edge[1]) for rel_edge in Piece.rel_edge_position if Game.valid_search_pos((pos[0]+rel_edge[0], pos[1]+rel_edge[1])) and (pos[0]+rel_edge[0], pos[1]+rel_edge[1]) not in pieces]
 
     def get_adjacent(pos): 
         return [(pos[0]+rel_edge[0], pos[1]+rel_edge[1]) for rel_edge in Piece.rel_edge_position if Game.valid_search_pos((pos[0]+rel_edge[0], pos[1]+rel_edge[1]))]
