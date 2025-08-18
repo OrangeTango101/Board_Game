@@ -10,13 +10,13 @@ class Game:
     display_height = 550
     grid_width = 11
     grid_height = 11
-    grid = [] 
+    game_state = []
     show_display = True
 
     player_turn = 0
 
     def initialize_game(players=[]): 
-        Game.make_grid()
+        Game.update_game_state()
         Game.display_screen = pygame.display.set_mode((Game.display_width, Game.display_height))
         Game.value_font = pygame.font.SysFont(None, 20)
         Game.text_font = pygame.font.SysFont(None, 40)
@@ -27,46 +27,27 @@ class Game:
         Game.players = players
         Game.player_turn = 0 
         Game.active_player = Game.get_active_player()
-        Game.legal_actions = defaultdict(list) 
-        Game.legal_actions["p"] = ["p-5-10"] 
 
         Game.active_player.choose_action()
 
     def game_loop():
-        if not Game.test_turn_over(): 
-            Game.active_player.choose_action()
-        Game.test_game_over()
+        Game.game_state = Game.get_game_state(Game.players)
+        legal_actions = Game.active_player.get_actions()
 
-    def next_turn(): 
-        Game.player_turn += 1
-        
-        if Game.player_turn == len(Game.players): 
-            Game.player_turn = 0
-            Game.rounds += 1 
+        if not Game.test_turn_over(legal_actions): 
+            Game.active_player.choose_action(legal_actions)
+        Game.test_game_over(legal_actions)
 
-        Game.active_player = Game.get_active_player()
-        Game.active_player.reset_snakes()
-        Game.legal_actions = Game.active_player.get_actions()
-        spawn_cell = Game.grid_search(Game.active_player.spawn_pos)
-        
-        #check if active 
-        if (not spawn_cell.is_empty() and spawn_cell.get_player() != Game.active_player) or not Game.legal_actions: 
-            Game.active_player.active = False
-        
-        if not Game.active_player.active: 
-            Game.active_player.delete_snakes()
-            Game.next_turn()
-
-    def test_turn_over():
+    def test_turn_over(legal_actions):
         #end turn if no legal actions 
-        if not Game.legal_actions: 
+        if not legal_actions: 
             Game.next_turn()
             return True
         #continue turn if legal actions, but no pieces on board 
-        if not Game.active_player.snakes: 
+        if not Game.active_player.pieces: 
             return False
         #end turn if all snakes are inactive 
-        if not any([snake.active for snake in Game.active_player.snakes]): 
+        if not any([Snake.is_active(pieces, Game.active_player) for pieces in Game.active_player.snakes.values()]): 
             Game.next_turn()
             return True 
         #continue turn if legal actions and active snakes 
@@ -76,6 +57,29 @@ class Game:
         if sum([player.active for player in Game.players]) == 1: 
             print(f"Game Over, Winner: {Game.active_player.player_name}")  
             Game.winner = Game.active_player 
+
+    def next_turn(): 
+        Game.player_turn += 1
+        
+        if Game.player_turn == len(Game.players): 
+            Game.player_turn = 0
+            Game.rounds += 1 
+
+        Game.active_player = Game.get_active_player()
+
+
+        Game.active_player.activate_pieces()
+        Game.legal_actions = Game.active_player.get_actions()
+        spawn_cell = Game.grid_search(Game.active_player.spawn_pos)
+        
+        #check if active 
+        if (not spawn_cell.is_empty() and spawn_cell.get_player() != Game.active_player) or not Game.legal_actions: 
+            Game.active_player.active = False
+        
+        #move to next player and remove current player if inactive 
+        if not Game.active_player.active: 
+            Game.active_player.delete_snakes()
+            Game.next_turn()
 
     def run_action(action_code): 
         action = action_code.split("-")
@@ -166,22 +170,8 @@ class Game:
     def get_player(index):
         return Game.players[index]
     
-    def make_grid():
-        Game.grid = []
-        for i in range(Game.grid_width): 
-            for j in range(Game.grid_height): 
-                Game.grid.append(Cell((i, j)))
-    
-    def get_game_state(player): 
-        game_state = []
-        for cell in Game.grid: 
-            if cell.is_empty():
-                game_state.append(0)
-            elif cell.get_player() == player: 
-                game_state.append(cell.value)
-            else: 
-                game_state.append(-cell.value)
-        return game_state
+    def get_game_state(players): 
+        ...
 
     def display_state(state): 
         rows = 11
@@ -222,8 +212,15 @@ class Player:
         self.num_pieces = num_pieces 
         self.color = color
         self.player_name = name
-        self.snakes = []
         self.active = True
+    
+        #{snake_id: [piece_coord1, piece_coord2, piece_coord...]}
+        #{1: [(0,1),(2,2),(3,4)], 2: [(5,5),(9,7)], ...}
+        self.snakes = {}
+
+        #{(piece_coords): (value, is_active, snake_id)}
+        #pieces = {(0,1): (6,True,1), (2,2): (6,True,1), (3,4): (6,True,1), (5,5): (6,True,2), (9,7): (6,True,2), ...}
+        self.pieces = {}
         
     def get_actions(self):
         actions = defaultdict(list) 
@@ -246,42 +243,38 @@ class Player:
             actions["r"].extend(snake.get_legal_rolls())
             
         return actions
-    
-    def total_pieces(self): 
-        total = 0
-        for snake in self.snakes:
-            total += len(snake.cells)
-        return total
 
     def choose_action(self): 
         ...
 
+
+    #Snake methods
     def remove_snake(self, snake):
-        self.snakes.remove(snake) 
+        ... 
 
-    def reset_snakes(self):
-        for snake in self.snakes: 
-            snake.reset()
-
-    def delete_snakes(self): 
-        while self.snakes: 
-            self.snakes[0].delete_self(False)
-
+    #Piece methods 
+    def roll_piece(self, pos): 
+        ...
+    def move_piece(self, pos1, pos2): 
+        ... 
+    def place_piece(self, pos): 
+        ...
+    def activate_pieces(self): 
+        ... 
+    def delete_piece(self, pos): 
+        ...
+    def delete_all_pieces(self): 
+        ... 
+    def total_pieces(self): 
+        ... 
+    
     def display(self): 
         pygame.draw.circle(Game.display_screen, self.color, (self.spawn_pos[0]*50+25, self.spawn_pos[1]*50+25), 20, width=1)
 
+
+# TODO: Make Snake class static such that it returns legal actions given a snake dictionary 
+
 class Snake: 
-    def __init__(self, player, cells, active=True, rolls=0): 
-        self.cells = cells
-        self.player = player
-        self.active = active
-        self.rolls = rolls 
-        
-        player.snakes.append(self) 
-        
-        for cell in cells: 
-            cell.rolled = False
-            cell.snake = self
 
     def get_legal_movements(self):
         actions = []
@@ -375,80 +368,27 @@ class Snake:
         
         return Snake(player, combined_cells, active, rolls) 
     
+    def is_active(pieces, player): 
+        ... 
 
-class Cell:
+class Piece:
     rel_edge_positions = [(1,0), (-1,0), (0,1), (0,-1)]
+
+    def get_actions(pos, player): 
+        ... 
     
-    def __init__(self, pos): 
-        self.pos = pos
-        self.color = (0, 0, 255)
-        self.w = 50
-        self.value = 1 
-        self.snake = None
-        self.rolled = False
-
-        self.perimeter = []
-
-    def place_piece(self, snake, value): 
-        self.snake = snake
-        self.perimeter = self.get_non_connections()
-        self.value = value
-        self.color = self.get_player().color
-
-    def remove_piece(self): 
-        self.perimeter = []
-        self.color = (0, 0, 255)
-        self.value = 1
-        self.snake = None 
-        self.rolled = False 
+    def get_connections(pos, player): 
+        if pos not in player.pieces: 
+            return[]
+        return [(pos[0]+rel_edge[0], pos[1]+rel_edge[1]) for rel_edge in Piece.rel_edge_position if Game.valid_search_pos((pos[0]+rel_edge[0], pos[1]+rel_edge[1])) and (pos[0]+rel_edge[0], pos[1]+rel_edge[1]) in player.pieces]
         
-    def roll(self): 
-        self.value = np.random.randint(1, 7) 
-        self.rolled = True
-        if self.snake: 
-            self.snake.add_roll(self.value)
+    def get_non_connections(pos, player):
+        if pos not in player.pieces: 
+            return Piece.get_adjacent(pos)
+        return [(pos[0]+rel_edge[0], pos[1]+rel_edge[1]) for rel_edge in Piece.rel_edge_position if Game.valid_search_pos((pos[0]+rel_edge[0], pos[1]+rel_edge[1])) and (pos[0]+rel_edge[0], pos[1]+rel_edge[1]) not in player.pieces]
 
-    def remove_perimeter(self, cell):
-        self.perimeter.remove(cell)
-
-    def add_perimeter(self, cell):
-        self.perimeter.append(cell) 
-
-    def get_connections(self, player): 
-        adjacent = self.get_adjacent()
-        return [connection for connection in adjacent if connection.get_player() == player]
-        
-    def get_non_connections(self): 
-        adjacent = self.get_adjacent() 
-        return [connection for connection in adjacent if connection.get_player() != self.get_player()]
-        
-    def get_adjacent(self): 
-        return [Game.grid_search((self.pos[0]+rel_edge[0], self.pos[1]+rel_edge[1])) for rel_edge in Cell.rel_edge_positions if Game.valid_search_pos((self.pos[0]+rel_edge[0], self.pos[1]+rel_edge[1]))]
-
-    def get_display_range(self):
-        return [(self.pos[0]*50, self.pos[0]*50+50), (self.pos[1]*50, self.pos[1]*50+50)]
-
-    def get_player(self): 
-        if not self.snake: 
-            return None 
-        return self.snake.player
-
-    def is_empty(self): 
-        return self.get_player() is None
-
-    def display(self): 
-        pygame.draw.rect(Game.display_screen, self.color, (self.pos[0]*self.w, self.pos[1]*self.w, self.w, self.w), width=1)
-            
-        if not self.is_empty():
-            value_text_surface = Game.value_font.render(f"{self.value}", False, (0,0,0))
-            Game.display_screen.blit(value_text_surface, (self.pos[0]*self.w+21, self.pos[1]*self.w+18))
-
-            if not self.snake.active or self.rolled: 
-                surf = pygame.Surface((self.w-1, self.w-1))    
-                surf.set_alpha(50)              
-                surf.fill(self.color)                 
-                Game.display_screen.blit(surf, (self.pos[0]*self.w, self.pos[1]*self.w))
-        
+    def get_adjacent(pos): 
+        return [(pos[0]+rel_edge[0], pos[1]+rel_edge[1]) for rel_edge in Piece.rel_edge_position if Game.valid_search_pos((pos[0]+rel_edge[0], pos[1]+rel_edge[1]))]
         
     def snake_search(self, visited, to_find): 
         visited.append(self)
