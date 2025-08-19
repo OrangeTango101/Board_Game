@@ -10,13 +10,13 @@ class Game:
     display_height = 550
     grid_width = 11
     grid_height = 11
+    cell_width = 50
     game_state = []
     show_display = True
 
     player_turn = 0
 
     def initialize_game(players=[]): 
-        Game.game_state = Game.get_game_state(Game.players[0].snakes, Game.players[1].snakes)
         Game.display_screen = pygame.display.set_mode((Game.display_width, Game.display_height))
         Game.value_font = pygame.font.SysFont(None, 20)
         Game.text_font = pygame.font.SysFont(None, 40)
@@ -27,6 +27,9 @@ class Game:
         Game.players = players
         Game.player_turn = 0 
         Game.active_player = Game.get_active_player()
+
+
+        Game.game_state = Game.get_game_state(Game.players[0].pieces, Game.players[1].pieces)
         Game.legal_actions = defaultdict(list) 
         Game.legal_actions["p"] = ["p-5-10"] 
 
@@ -81,26 +84,9 @@ class Game:
             Game.active_player.delete_snakes()
             Game.next_turn()
 
-    def run_action(action_code): 
-        action = action_code.split("-")
-        action_type = action[0]
-
-        if action_code in Game.legal_actions[action_type]: 
-            if action_type == "p": 
-                Game.add_piece_to_grid(Game.active_player, (int(action[1]), int(action[2])), 1)
-                Game.active_player.num_pieces -= 1
-            if action_type == "m":
-                moved_value = Game.grid_search((int(action[1]), int(action[2]))).value
-                Game.remove_piece_from_grid((int(action[1]), int(action[2])))
-                Game.remove_piece_from_grid((int(action[3]), int(action[4])))
-                Game.add_piece_to_grid(Game.active_player, (int(action[3]), int(action[4])), moved_value)
-                Game.grid_search((int(action[3]), int(action[4]))).snake.moved()
-            if action_type == "r": 
-                cell_to_roll = Game.grid_search((int(action[1]), int(action[2]))) 
-                cell_to_roll.roll()   
-            
-            Game.legal_actions = Game.active_player.get_actions()
-            Game.game_state = Game.get_game_state(Game.players[0].snakes, Game.players[1].snakes)
+    def update_turn(): 
+        Game.legal_actions = Game.active_player.get_actions()
+        Game.game_state = Game.get_game_state(Game.players[0].pieces, Game.players[1].pieces)
 
     def add_piece_to_grid(player, pos, value): 
         new_piece = Game.grid_search(pos) 
@@ -157,6 +143,9 @@ class Game:
     
     def pos_to_grid_index(pos): 
         return pos[0]*Game.grid_height+pos[1]
+    
+    def grid_index_to_pos(indx): 
+        return (indx//Game.grid_height, indx%Game.grid_height)
 
     def get_selected_cell(mouse_pos):  
         for cell in Game.grid: 
@@ -183,28 +172,23 @@ class Game:
             grid[Game.pos_to_grid_index(piece)] = -data[0]
         return grid
 
-
-    def print_state(state): 
-        rows = 11
-        cols = len(state) // rows
-
-        grid = [[0] * cols for _ in range(rows)]
-
-        for i, num in enumerate(state):
-            row = i % rows
-            col = i // rows
-            grid[row][col] = num
-
-        for row in grid:
-            print(" ".join(f"{num:2}" for num in row))
-
     def display_game():   
         Game.display_screen.fill((255, 255, 255))
         for player in Game.players:
             player.display()
+ 
+        for indx, val in enumerate(Game.game_state): 
+            pos = Game.grid_index_to_pos(indx)
+            color = (100, 100, 100)
+            if val > 0: 
+                color = Game.players[0].color
+            if val < 0: 
+                color = Game.players[1].color
 
-        for cell in Game.game_state: 
-            ...
+            pygame.draw.rect(Game.display_screen, color, (pos[0]*Game.cell_width+1, pos[1]*Game.cell_width+1, 50, 50), width=1)
+            if val != 0: 
+                value_text_surface = Game.value_font.render(f"{val}", False, (0,0,0))
+                Game.display_screen.blit(value_text_surface, (pos[0]*Game.cell_width+21, pos[1]*Game.cell_width+18))
         
         Actions.display()
 
@@ -236,6 +220,11 @@ class Player:
     def choose_action(self): 
         ...
         
+    def run_action(self, action_code): 
+        if action_code in Game.legal_actions.values(): 
+            Actions.translate_code(action_code, self)
+            Game.update_turn()
+
     def get_actions(self):
         actions = defaultdict(list) 
         
@@ -252,23 +241,33 @@ class Player:
             actions["m"].extend(snake_actions["m"])
             actions["r"].extend(snake_actions["r"])
             
-        return actions
+        return actions    
 
-    #Snake methods
+    #Actions
+    def roll_piece(self, pos): 
+        ...
+
+    def move_piece(self, pos1, pos2): 
+        '''
+        moved_value = Game.grid_search((int(action[1]), int(action[2]))).value
+        Game.remove_piece_from_grid((int(action[1]), int(action[2])))
+        Game.remove_piece_from_grid((int(action[3]), int(action[4])))
+        Game.add_piece_to_grid(Game.active_player, (int(action[3]), int(action[4])), moved_value)
+        Game.grid_search((int(action[3]), int(action[4]))).snake.moved() 
+        '''
+        ...
+
+    def place_piece(self, pos): 
+        Game.add_piece_to_grid(Game.active_player, pos, 1)
+        self.num_pieces -= 1
+
+    #Snake Methods
     def remove_snake(self, snake):
         ... 
 
     #Piece methods 
-    def roll_piece(self, pos): 
-        ...
-    def move_piece(self, pos1, pos2): 
-        ... 
-    def place_piece(self, pos): 
-        ...
     def activate_pieces(self): 
         ... 
-    def delete_piece(self, pos): 
-        ...
     def delete_all_pieces(self): 
         ... 
     def total_pieces(self): 
@@ -278,12 +277,24 @@ class Player:
         pygame.draw.circle(Game.display_screen, self.color, (self.spawn_pos[0]*50+25, self.spawn_pos[1]*50+25), 20, width=1)
 
 
-# TODO: Make Snake class static such that it returns legal actions given a snake dictionary 
-
 class Snake: 
 
     def get_actions(snake): 
         ... 
+
+    def add_piece_to_dict(snake_dict, piece_dict, pos, val): 
+        connected_snakes = Piece.get_connected_snakes(pos, piece_dict) 
+
+        #create parent snake 
+        parent_snake = Snake(player, []) if not connected_snakes else Snake.get_combined_snakes(connected_snakes) 
+
+        #place piece and add it to parent snake 
+        new_piece.place_piece(parent_snake, value) 
+        parent_snake.add_cell(new_piece) 
+
+    def remove_piece_from_dict(snake_dict, piece_dict, pos, val): 
+        ... 
+
 
     def get_legal_movements(self):
         actions = []
@@ -376,9 +387,6 @@ class Snake:
             snake.delete_self() 
         
         return Snake(player, combined_cells, active, rolls) 
-    
-    def get_perim(snake):
-        ...
 
     def is_active(pieces, player): 
         ... 
@@ -386,10 +394,15 @@ class Snake:
 class Piece:
     rel_edge_positions = [(1,0), (-1,0), (0,1), (0,-1)]
     
+    def get_connected_snakes(pos, pieces): 
+        if pos not in pieces:
+            return []
+        return list(set([pieces[(pos[0]+rel_edge[0], pos[1]+rel_edge[1])][2] for rel_edge in Piece.rel_edge_position if (pos[0]+rel_edge[0], pos[1]+rel_edge[1]) in pieces]))
+
     def get_connections(pos, pieces): 
         if pos not in pieces: 
-            return[]
-        return [(pos[0]+rel_edge[0], pos[1]+rel_edge[1]) for rel_edge in Piece.rel_edge_position if Game.valid_search_pos((pos[0]+rel_edge[0], pos[1]+rel_edge[1])) and (pos[0]+rel_edge[0], pos[1]+rel_edge[1]) in pieces]
+            return []
+        return [(pos[0]+rel_edge[0], pos[1]+rel_edge[1]) for rel_edge in Piece.rel_edge_position if (pos[0]+rel_edge[0], pos[1]+rel_edge[1]) in pieces]
         
     def get_non_connections(pos, pieces):
         if pos not in pieces: 
@@ -432,23 +445,33 @@ class Actions:
     def space_action(event): 
         Game.show_display = not Game.show_display 
     
-    def translate_movement(pos1, pos2): 
+    def get_movement_code(pos1, pos2): 
         return "m"+"-"+str(pos1[0])+"-"+str(pos1[1])+"-"+str(pos2[0])+"-"+str(pos2[1])
 
-    def translate_movement_batch(to_move, locations):
-        return [Actions.translate_movement(to_move.pos, loc.pos) for loc in locations]
+    def get_movement_codes(to_move, locations):
+        return [Actions.get_movement_code(to_move.pos, loc.pos) for loc in locations]
     
-    def translate_placement(pos): 
+    def get_placement_code(pos): 
         return "p"+"-"+str(pos[0])+"-"+str(pos[1])
 
-    def translate_placement_batch(cells): 
-        return [Actions.translate_placement(cell.pos) for cell in cells]
+    def get_placement_codes(cells): 
+        return [Actions.get_placement_code(cell.pos) for cell in cells]
 
-    def translate_roll(pos): 
+    def get_roll_code(pos): 
         return "r"+"-"+str(pos[0])+"-"+str(pos[1])
 
-    def translate_roll_batch(cells):
-        return [Actions.translate_roll(cell.pos) for cell in cells]
+    def get_roll_codes(cells):
+        return [Actions.get_roll_code(cell.pos) for cell in cells]
+    
+    def translate_code(action_code, player): 
+        action = action_code.split("-")
+        action_type = action[0]
+        if action_type == "p": 
+            player.place_piece((int(action[1]), int(action[2])))
+        if action_type == "m":
+            player.move_piece((int(action[1]), int(action[2])), (int(action[3]), int(action[4])))
+        if action_type == "r":  
+            player.roll_piece((int(action[1]), int(action[2])))
 
     def display():
         mouse_pos = pygame.mouse.get_pos()
