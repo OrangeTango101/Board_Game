@@ -88,53 +88,6 @@ class Game:
         Game.legal_actions = Game.active_player.get_actions()
         Game.game_state = Game.get_game_state(Game.players[0].pieces, Game.players[1].pieces)
 
-    def add_piece_to_grid(player, pos, value): 
-        new_piece = Game.grid_search(pos) 
-        connected_cells = new_piece.get_connections(player)
-        connected_snakes = list(set([cell.snake for cell in connected_cells])) 
-
-        #update the perimeter of surrounding cells 
-        for cell in connected_cells: 
-            cell.remove_perimeter(new_piece)  
-
-        #create parent snake 
-        parent_snake = Snake(player, []) if not connected_snakes else Snake.get_combined_snakes(connected_snakes) 
-
-        #place piece and add it to parent snake 
-        new_piece.place_piece(parent_snake, value) 
-        parent_snake.add_cell(new_piece)
-         
-                                        
-    def remove_piece_from_grid(pos): 
-        removed_piece = Game.grid_search(pos)
-        player = removed_piece.get_player()
-
-        if removed_piece.is_empty():
-            return False 
-        
-        connected_cells = removed_piece.get_connections(player)
-        removed_snake = removed_piece.snake
-
-        #update the perimeter of surrounding cells
-        for cell in connected_cells: 
-            cell.add_perimeter(removed_piece)
-
-        #remove piece 
-        removed_piece.remove_piece()
-
-        #handle broken snakes  
-        if len(connected_cells) > 1: 
-            while connected_cells: 
-                snake_cells = []
-                connected_cells[0].snake_search(snake_cells, connected_cells) 
-                Snake(player, snake_cells)  
-
-            removed_snake.delete_self()
-        else: 
-            removed_snake.remove_cell(removed_piece) 
-
-        return True 
-
     def valid_search_pos(pos): 
         return pos[0] >= 0 and pos[0] <= Game.grid_width-1 and pos[1] >= 0 and pos[1] <= Game.grid_height-1
 
