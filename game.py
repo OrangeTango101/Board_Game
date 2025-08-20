@@ -146,13 +146,9 @@ class Game:
     
     def grid_index_to_pos(indx): 
         return (indx//Game.grid_height, indx%Game.grid_height)
-
-    def get_selected_cell(mouse_pos):  
-        for cell in Game.grid: 
-            display_range = cell.get_display_range()
-            if (mouse_pos[0] >= display_range[0][0] and mouse_pos[0] <= display_range[0][1] 
-            and mouse_pos[1] >= display_range[1][0] and mouse_pos[1] <= display_range[1][1]):
-                return cell
+    
+    def coords_to_grid_pos(coords): 
+        return (coords[0]//Game.cell_width, coords[1]//Game.cell_width)
 
     def get_active_player(): 
         return Game.players[Game.player_turn]
@@ -167,7 +163,7 @@ class Game:
         grid = [0]*(Game.grid_width*Game.grid_height)
 
         for piece, data in p1_pieces.items(): 
-            grid[Game.pos_to_grid_index(piece)] = data[0] 
+            grid[Game.pos_to_grid_index(piece)] = data[0]
         for piece, data in p2_pieces.items(): 
             grid[Game.pos_to_grid_index(piece)] = -data[0]
         return grid
@@ -211,11 +207,11 @@ class Player:
     
         #{snake_id: [piece_coord1, piece_coord2, piece_coord...]}
         #{1: [(0,1),(2,2),(3,4)], 2: [(5,5),(9,7)], ...}
-        self.snakes = {}
+        self.snakes = defaultdict(list)
 
-        #{(piece_coords): (value, is_active, snake_id)}
-        #pieces = {(0,1): (6,True,1), (2,2): (6,True,1), (3,4): (6,True,1), (5,5): (6,True,2), (9,7): (6,True,2), ...}
-        self.pieces = {}
+        #{(piece_coords): [value, is_active, snake_id]}
+        #pieces = {(0,1): [6,True,1], (2,2): [6,True,1], (3,4): [6,True,1], (5,5): [6,True,2], (9,7): [6,True,2], ...}
+        self.pieces = defaultdict(list)
 
     def choose_action(self): 
         ...
@@ -245,7 +241,8 @@ class Player:
 
     #Actions
     def roll_piece(self, pos): 
-        ...
+        value = np.random.randint(1, 7) 
+        ... 
 
     def move_piece(self, pos1, pos2): 
         '''
@@ -278,23 +275,77 @@ class Player:
 
 
 class Snake: 
+    snake_id = 0 
 
     def get_actions(snake): 
         ... 
 
     def add_piece_to_dict(snake_dict, piece_dict, pos, val): 
         connected_snakes = Piece.get_connected_snakes(pos, piece_dict) 
+        print(f"connected_snakes: {connected_snakes}")
 
         #create parent snake 
-        parent_snake = Snake(player, []) if not connected_snakes else Snake.get_combined_snakes(connected_snakes) 
+        snake_id = Snake.get_unique_id() if not connected_snakes else Snake.get_combined_snakes(connected_snakes, snake_dict, piece_dict) 
 
-        #place piece and add it to parent snake 
-        new_piece.place_piece(parent_snake, value) 
-        parent_snake.add_cell(new_piece) 
+        #add piece to the snake and piece dictionaries
+        snake_dict[snake_id].append(pos)
+        piece_dict[pos].extend([val, True, snake_id])
 
-    def remove_piece_from_dict(snake_dict, piece_dict, pos, val): 
-        ... 
+    def remove_piece_from_dict(snake_dict, piece_dict, pos): 
+        if pos not in piece_dict: 
+            return 
+        connections = Piece.get_connections(pos, piece_dict)
+        snake_id_to_remove = piece_dict[pos][2] 
 
+        #remove piece 
+        snake_dict[snake_id_to_remove].remove(pos)
+        piece_dict.pop(pos)
+
+        #handle split snakes 
+        if len(connections) >= 2:
+            while connections: 
+                snake_id = Snake.get_unique_id()
+                snake_pieces = []
+                Snake.snake_search(pos=connections[0], visited=snake_pieces, to_search=snake_dict[snake_id_to_remove], to_find=connections, snake_id=snake_id, piece_dict=piece_dict)
+                snake_dict[snake_id] = snake_pieces
+            snake_dict.pop(snake_id_to_remove)
+        elif Snake.is_empty(snake_id_to_remove, snake_dict): 
+            snake_dict.pop(snake_id_to_remove)
+
+    def get_combined_snakes(ids_to_connect, snake_dict, piece_dict):
+        if not ids_to_connect: 
+            return None 
+        if len(ids_to_connect) == 1:
+            return ids_to_connect[0]
+        
+        # add pieces from all combined snakes to the first snake, 
+        # reassign snake_ids of pieces, and remove every snake except the first 
+        for id in ids_to_connect[1:]: 
+            for piece in snake_dict[id]: 
+                snake_dict[ids_to_connect[0]].append(piece)
+                piece_dict[piece][2] = ids_to_connect[0]
+            snake_dict.pop(id)
+        
+        return ids_to_connect[0] 
+    
+    def snake_search(pos, visited, to_search, to_find, snake_id, piece_dict):
+        visited.append(pos)
+        if pos in to_find:
+            to_find.remove(pos)
+        piece_dict[pos][2] = snake_id
+        for piece in Piece.get_connections(pos, to_search):
+            if piece not in visited: 
+                Snake.snake_search(piece, visited, to_search, to_find, snake_id, piece_dict)
+
+    def get_unique_id():
+        Snake.snake_id += 1
+        return Snake.snake_id 
+    
+    def is_active(pieces): 
+        return sum([data[1] for data in pieces.values()]) < 2 
+    
+    def is_empty(snake_id, snake_dict): 
+        return len(snake_dict[snake_id]) == 0 
 
     def get_legal_movements(self):
         actions = []
@@ -372,45 +423,21 @@ class Snake:
                 else: 
                     cell.remove_piece()
         self.player.remove_snake(self) 
-        
-    def get_combined_snakes(snakes):
-        if not snakes: 
-            return None 
-        if len(snakes) == 1:
-            return snakes[0]
-        combined_cells = list(chain.from_iterable([snake.cells for snake in snakes]))
-        player = snakes[0].player 
-        active = all([snake.active for snake in snakes]) 
-        rolls = max([snake.rolls for snake in snakes]) 
-
-        for snake in snakes: 
-            snake.delete_self() 
-        
-        return Snake(player, combined_cells, active, rolls) 
-
-    def is_active(pieces, player): 
-        ... 
 
 class Piece:
     rel_edge_positions = [(1,0), (-1,0), (0,1), (0,-1)]
     
     def get_connected_snakes(pos, pieces): 
-        if pos not in pieces:
-            return []
-        return list(set([pieces[(pos[0]+rel_edge[0], pos[1]+rel_edge[1])][2] for rel_edge in Piece.rel_edge_position if (pos[0]+rel_edge[0], pos[1]+rel_edge[1]) in pieces]))
+        return list(set([pieces[(pos[0]+rel_edge[0], pos[1]+rel_edge[1])][2] for rel_edge in Piece.rel_edge_positions if (pos[0]+rel_edge[0], pos[1]+rel_edge[1]) in pieces]))
 
     def get_connections(pos, pieces): 
-        if pos not in pieces: 
-            return []
-        return [(pos[0]+rel_edge[0], pos[1]+rel_edge[1]) for rel_edge in Piece.rel_edge_position if (pos[0]+rel_edge[0], pos[1]+rel_edge[1]) in pieces]
+        return [(pos[0]+rel_edge[0], pos[1]+rel_edge[1]) for rel_edge in Piece.rel_edge_positions if (pos[0]+rel_edge[0], pos[1]+rel_edge[1]) in pieces]
         
     def get_non_connections(pos, pieces):
-        if pos not in pieces: 
-            return Piece.get_adjacent(pos)
-        return [(pos[0]+rel_edge[0], pos[1]+rel_edge[1]) for rel_edge in Piece.rel_edge_position if Game.valid_search_pos((pos[0]+rel_edge[0], pos[1]+rel_edge[1])) and (pos[0]+rel_edge[0], pos[1]+rel_edge[1]) not in pieces]
+        return [(pos[0]+rel_edge[0], pos[1]+rel_edge[1]) for rel_edge in Piece.rel_edge_positions if Game.valid_search_pos((pos[0]+rel_edge[0], pos[1]+rel_edge[1])) and (pos[0]+rel_edge[0], pos[1]+rel_edge[1]) not in pieces]
 
     def get_adjacent(pos): 
-        return [(pos[0]+rel_edge[0], pos[1]+rel_edge[1]) for rel_edge in Piece.rel_edge_position if Game.valid_search_pos((pos[0]+rel_edge[0], pos[1]+rel_edge[1]))]
+        return [(pos[0]+rel_edge[0], pos[1]+rel_edge[1]) for rel_edge in Piece.rel_edge_positions if Game.valid_search_pos((pos[0]+rel_edge[0], pos[1]+rel_edge[1]))]
         
     def snake_search(self, visited, to_find): 
         visited.append(self)
@@ -425,11 +452,10 @@ class Actions:
     store_input = None
 
     def click_action(event):
-        click_pos = event.pos
-        selected_cell = Game.get_selected_cell(click_pos)
+        click_coords = event.pos
+        cell_pos = Game.coords_to_grid_pos(click_coords)
 
         if event.button == 1: 
-            
             if selected_cell.is_empty(): 
                 Game.run_action(Actions.translate_placement(selected_cell.pos))
             else: 
@@ -444,6 +470,16 @@ class Actions:
 
     def space_action(event): 
         Game.show_display = not Game.show_display 
+
+    def translate_code(action_code, player): 
+        action = action_code.split("-")
+        action_type = action[0]
+        if action_type == "p": 
+            player.place_piece((int(action[1]), int(action[2])))
+        if action_type == "m":
+            player.move_piece((int(action[1]), int(action[2])), (int(action[3]), int(action[4])))
+        if action_type == "r":  
+            player.roll_piece((int(action[1]), int(action[2])))
     
     def get_movement_code(pos1, pos2): 
         return "m"+"-"+str(pos1[0])+"-"+str(pos1[1])+"-"+str(pos2[0])+"-"+str(pos2[1])
@@ -462,16 +498,6 @@ class Actions:
 
     def get_roll_codes(cells):
         return [Actions.get_roll_code(cell.pos) for cell in cells]
-    
-    def translate_code(action_code, player): 
-        action = action_code.split("-")
-        action_type = action[0]
-        if action_type == "p": 
-            player.place_piece((int(action[1]), int(action[2])))
-        if action_type == "m":
-            player.move_piece((int(action[1]), int(action[2])), (int(action[3]), int(action[4])))
-        if action_type == "r":  
-            player.roll_piece((int(action[1]), int(action[2])))
 
     def display():
         mouse_pos = pygame.mouse.get_pos()
