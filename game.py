@@ -112,6 +112,9 @@ class Game:
     def get_player(index):
         return Game.players[index]
     
+    def cell_empty(game_state, indx): 
+        return game_state[indx] == 0
+    
     def get_game_state(p1_pieces, p2_pieces): 
         grid = [0]*(Game.grid_width*Game.grid_height)
 
@@ -164,14 +167,15 @@ class Player:
 
         #{(piece_coords): [value, is_active, snake_id]}
         #pieces = {(0,1): [6,True,1], (2,2): [6,True,1], (3,4): [6,True,1], (5,5): [6,True,2], (9,7): [6,True,2], ...}
-        self.pieces = defaultdict(list)
+        self.pieces = defaultdict(Piece.default_value)
 
     def choose_action(self): 
         ...
         
-    def run_action(self, action_code): 
+    def run_action(action_code, snake_dict, piece_dict): 
         if action_code in Game.legal_actions.values(): 
-            Actions.translate_code(action_code, self)
+            action, data = Actions.translate_code(action_code)
+            action(data, snake_dict, piece_dict)
             Game.update_turn()
 
     def get_actions(self):
@@ -193,23 +197,15 @@ class Player:
         return actions    
 
     #Actions
-    def roll_piece(self, pos): 
+    def roll_piece(snake_dict, piece_dict, positions): 
         value = np.random.randint(1, 7) 
         ... 
 
-    def move_piece(self, pos1, pos2): 
-        '''
-        moved_value = Game.grid_search((int(action[1]), int(action[2]))).value
-        Game.remove_piece_from_grid((int(action[1]), int(action[2])))
-        Game.remove_piece_from_grid((int(action[3]), int(action[4])))
-        Game.add_piece_to_grid(Game.active_player, (int(action[3]), int(action[4])), moved_value)
-        Game.grid_search((int(action[3]), int(action[4]))).snake.moved() 
-        '''
+    def move_piece(snake_dict, piece_dict, positions): 
         ...
 
-    def place_piece(self, pos): 
-        Game.add_piece_to_grid(Game.active_player, pos, 1)
-        self.num_pieces -= 1
+    def place_piece(snake_dict, piece_dict, positions): 
+        ...
 
     #Snake Methods
     def remove_snake(self, snake):
@@ -223,6 +219,7 @@ class Player:
     def total_pieces(self): 
         ... 
     
+    
     def display(self): 
         pygame.draw.circle(Game.display_screen, self.color, (self.spawn_pos[0]*50+25, self.spawn_pos[1]*50+25), 20, width=1)
 
@@ -230,8 +227,41 @@ class Player:
 class Snake: 
     snake_id = 0 
 
-    def get_actions(snake): 
+    def get_actions(snake_dict, piece_dict, enemy_pieces_dict): 
+        actions = defaultdict(list)
+        if not Snake.is_active(piece_dict): 
+            return actions
+        
+    def get_legal_movements(self):
+        actions = []
+        if not self.active or self.rolls != 1: 
+            return []
+            
+        for tail in self.get_tails(): 
+            perimeter = list(set(chain.from_iterable([cell.perimeter for cell in self.cells if cell != tail]))) 
+            legal_moves = [cell for cell in perimeter if cell.value <= tail.value]
+            actions.extend(Actions.translate_movement_batch(tail, legal_moves))   
+            
+        return actions
+        
+    def get_roll_actions(snake_dict, piece_dict): 
         ... 
+    def get_placement_actions(snake_dict, piece_dict): 
+
+        ...
+    def get_movement_actions(snake_pieces, piece_dict, enemy_pieces_dict): 
+        movements = []
+        for piece in snake_pieces: 
+            if len(Piece.get_connections(piece, snake_pieces)) == 1: 
+                legal_movement_positions = [pos for pos in Snake.get_perimeter(snake_pieces) if pos != piece and piece_dict[piece][0] >= enemy_pieces_dict[pos][0]]
+                movements.extend(Actions.get_movement_codes(piece, legal_movement_positions))
+        return movements  
+
+    def get_perimeter(snake_pieces): 
+        return list(set(chain.from_iterable([Piece.get_non_connections(piece, snake_pieces) for piece in snake_pieces]))) 
+
+    def get_empty_perimeter(snake_pieces, enemy_pieces): 
+        return list(set(chain.from_iterable([Piece.get_empty_adjacent(piece, snake_pieces, enemy_pieces) for piece in snake_pieces]))) 
 
     def add_piece_to_dict(snake_dict, piece_dict, pos, val): 
         connected_snakes = Piece.get_connected_snakes(pos, piece_dict) 
@@ -300,83 +330,6 @@ class Snake:
     def is_empty(snake_id, snake_dict): 
         return len(snake_dict[snake_id]) == 0 
 
-    def get_legal_movements(self):
-        actions = []
-        if not self.active or self.rolls != 1: 
-            return []
-            
-        for tail in self.get_tails(): 
-            perimeter = list(set(chain.from_iterable([cell.perimeter for cell in self.cells if cell != tail]))) 
-            legal_moves = [cell for cell in perimeter if cell.value <= tail.value]
-            actions.extend(Actions.translate_movement_batch(tail, legal_moves))   
-            
-        return actions
-
-    def get_legal_rolls(self): 
-        if not self.active: 
-            return [] 
-        return Actions.translate_roll_batch([cell for cell in self.cells if not cell.rolled])
-
-    def add_roll(self, val): 
-        if self.rolls == 1 or len(self.cells) == 1: 
-            self.rolls = 0 
-            self.active = False
-        else: 
-            self.rolls += 1 
-
-        self.check_shared_vals()
-
-    def check_shared_vals(self):    
-        shared_val = True
-        val = self.cells[0].value
-        for cell in self.cells:
-            if cell.value != val or cell.value == 1: 
-                shared_val = False
-        if shared_val and len(self.cells) > 1: 
-            for cell in self.cells:
-                cell.value = 1
-            self.active = False 
-            self.player.num_pieces += 1
-
-    def moved(self): 
-        self.active = False
-    
-    def get_tails(self): 
-        return [cell for cell in self.cells if len(cell.get_connections(self.player)) == 1] 
-
-    def get_perimeter(self): 
-        return list(set(chain.from_iterable([cell.perimeter for cell in self.cells]))) 
-
-    def get_empty_perimeter(self): 
-        perim = []
-        for cell in self.cells: 
-            perim.extend([perim_cell for perim_cell in cell.perimeter if perim_cell.is_empty()])
-        return perim
-
-    def add_cell(self, cell): 
-        self.cells.append(cell) 
-
-    def remove_cell(self, cell): 
-        self.cells.remove(cell) 
-        if not self.cells: 
-            self.delete_self()
-
-    def reset(self):
-        self.active = True
-        self.rolls = 0
-        self.check_shared_vals()
-        for cell in self.cells:
-            cell.rolled = False
-
-    def delete_self(self, keep_cells=True): 
-        for cell in self.cells: 
-            if cell.snake == self: 
-                if keep_cells: 
-                    cell.snake = None
-                else: 
-                    cell.remove_piece()
-        self.player.remove_snake(self) 
-
 class Piece:
     rel_edge_positions = [(1,0), (-1,0), (0,1), (0,-1)]
     
@@ -389,30 +342,28 @@ class Piece:
     def get_non_connections(pos, pieces):
         return [(pos[0]+rel_edge[0], pos[1]+rel_edge[1]) for rel_edge in Piece.rel_edge_positions if Game.valid_search_pos((pos[0]+rel_edge[0], pos[1]+rel_edge[1])) and (pos[0]+rel_edge[0], pos[1]+rel_edge[1]) not in pieces]
 
+    def get_empty_adjacent(pos, pieces1, pieces2): 
+        return [(pos[0]+rel_edge[0], pos[1]+rel_edge[1]) for rel_edge in Piece.rel_edge_positions if Game.valid_search_pos((pos[0]+rel_edge[0], pos[1]+rel_edge[1])) and (pos[0]+rel_edge[0], pos[1]+rel_edge[1]) not in pieces1 and (pos[0]+rel_edge[0], pos[1]+rel_edge[1]) not in pieces2]
+
     def get_adjacent(pos): 
         return [(pos[0]+rel_edge[0], pos[1]+rel_edge[1]) for rel_edge in Piece.rel_edge_positions if Game.valid_search_pos((pos[0]+rel_edge[0], pos[1]+rel_edge[1]))]
-        
-    def snake_search(self, visited, to_find): 
-        visited.append(self)
-        if self in to_find: 
-            to_find.remove(self) 
-        for connection in self.get_connections(self.get_player()): 
-            if connection not in visited: 
-                connection.snake_search(visited, to_find) 
-        
+    
+    def default_value():
+        return [-1, -1, -1]
+    
 class Actions:
 
     store_input = None
 
     def click_action(event):
-        click_coords = event.pos
-        cell_pos = Game.coords_to_grid_pos(click_coords)
+        cell_pos = Game.coords_to_grid_pos(event.pos)
+        state_indx = Game.pos_to_grid_index(cell_pos)
 
         if event.button == 1: 
-            if selected_cell.is_empty(): 
-                Game.run_action(Actions.translate_placement(selected_cell.pos))
+            if Game.cell_empty(state_indx): 
+                Game.active_player.run_action(Actions.get_placement_code(cell_pos))
             else: 
-                Game.run_action(Actions.translate_roll(selected_cell.pos))
+                Game.active_player.run_action(Actions.translate_roll(selected_cell.pos))
                 
         if event.button == 3: 
             if Actions.store_input: 
@@ -424,15 +375,15 @@ class Actions:
     def space_action(event): 
         Game.show_display = not Game.show_display 
 
-    def translate_code(action_code, player): 
+    def translate_code(action_code): 
         action = action_code.split("-")
         action_type = action[0]
         if action_type == "p": 
-            player.place_piece((int(action[1]), int(action[2])))
+            return Player.place_piece, [(int(action[1]), int(action[2]))]
         if action_type == "m":
-            player.move_piece((int(action[1]), int(action[2])), (int(action[3]), int(action[4])))
+            return Player.move_piece, [(int(action[1]), int(action[2])), (int(action[3]), int(action[4]))]
         if action_type == "r":  
-            player.roll_piece((int(action[1]), int(action[2])))
+            return Player.roll_piece, [(int(action[1]), int(action[2]))]
     
     def get_movement_code(pos1, pos2): 
         return "m"+"-"+str(pos1[0])+"-"+str(pos1[1])+"-"+str(pos2[0])+"-"+str(pos2[1])
