@@ -25,7 +25,7 @@ def train_agents(winner):
     reinforcementAgents = [agent for agent in Game.players if isinstance(agent, ReinforcementAgent)]
 
     for agent in reinforcementAgents: 
-        episode_value = 0 
+        episode_value = 0
         if winner == agent: 
             episode_value = 1
             print(f"Iterations:{20000-iterations}")
@@ -67,9 +67,6 @@ while running:
         running = False
 
     Game.game_loop()
-
-    if Game.show_display: 
-        Game.display_game()
 
 pygame.quit()
 sys.exit()

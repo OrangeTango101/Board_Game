@@ -15,11 +15,11 @@ Game.initialize_game(players=[Player(0, (5,10), 6, (255, 0, 0), "Red"), Player(0
 running = True
 while running:
     User.register_events()
-
     Game.game_loop()
 
     if User.close_game or Game.winner: 
         running = False
+    
     
 pygame.quit()
 sys.exit()

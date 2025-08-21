@@ -11,11 +11,12 @@ class Agent(Player):
     
 class RandomAgent(Agent): 
         
-    def choose_action(self): 
-        action_types = [key for key in Game.legal_actions.keys() if Game.legal_actions[key]]
-        actions = Game.legal_actions[np.random.choice(action_types)]
+    def choose_action(self, game_state): 
+        legal_actions = Player.get_actions(game_state)
+        action_types = [key for key in legal_actions.keys() if legal_actions[key]]
+        actions = legal_actions[np.random.choice(action_types)]
 
-        Game.run_action(np.random.choice(actions))
+        Player.run_action(np.random.choice(actions), game_state, legal_actions)
 
 class ReinforcementAgent(Agent):
 
@@ -27,22 +28,25 @@ class ReinforcementAgent(Agent):
 
         self.epsilon = 0.8
      
-    def choose_action(self): 
+    def choose_action(self, game_state): 
+        legal_actions = Player.get_actions(game_state)
         highest_rating = float('-inf')
         best_action = None
         best_projection = None
-
+        
+        '''
         if np.random.rand() > self.epsilon: 
-            action_types = [key for key in Game.legal_actions.keys() if Game.legal_actions[key]]
-            actions = Game.legal_actions[np.random.choice(action_types)]
+            action_types = [key for key in legal_actions.keys() if legal_actions[key]]
+            actions = legal_actions[np.random.choice(action_types)]
 
-            Game.run_action(np.random.choice(actions))
+            Player.run_action(np.random.choice(actions), game_state, legal_actions)
             return 
+        '''
 
 
-        for ls in Game.legal_actions.values(): 
+        for ls in legal_actions.values(): 
             for action in ls: 
-                projection = self.project_state(action)
+                projection = ReinforcementAgent.project_state(action, game_state)
                 rating = self.nn(torch.tensor([projection], dtype=torch.float)) 
                 
                 if rating > highest_rating: 
@@ -51,11 +55,13 @@ class ReinforcementAgent(Agent):
                     best_projection = projection
 
 
-        self.episode.append([Game.get_game_state(self), 0, best_projection])
-        Game.run_action(best_action)
+        self.episode.append([Game.get_board_state(game_state["piece_dict"], game_state["op_piece_dict"]), 0, best_projection])
+        Player.run_action(best_action, game_state, legal_actions)
     
-    def project_state(self, action_code):
-        state = Game.get_game_state(self)
+    def project_state(action_code, game_state):
+        state = Game.get_board_state(game_state["piece_dict"], game_state["op_piece_dict"])
+
+        print(state)
         action = action_code.split("-")
         action_type = action[0]
 
