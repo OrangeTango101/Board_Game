@@ -113,7 +113,9 @@ class Game:
         for row in grid:
             print(" ".join(f"{num:2}" for num in row))
 
-    def display_game(board_state):   
+    def display_game(game_state):   
+        board_state = Game.get_board_state(game_state)
+
         Game.display_screen.fill((255, 255, 255))
         for player in Game.players:
             player.display()
@@ -123,6 +125,8 @@ class Game:
             color = (100, 100, 100)
             if val > 0: 
                 color = Game.players[0].color
+                if game_state["piece_dict"][Game.grid_index_to_pos(indx)][1]: 
+                    
             if val < 0: 
                 color = Game.players[1].color
             
