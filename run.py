@@ -10,7 +10,7 @@ two_players = [Player(0, (5,10), 6, (255, 0, 0), "Red"), Player(0, (5,0), 6, (0,
 three_players = [Player(0, (5,10), 6, (255, 0, 0), "Red"), Player(0, (5,0), 6, (0, 255, 0), "Green"), Player(0, (10,5), 6, (255, 0, 255), "Purple")]
 
 pygame.init()
-Game.initialize_game(players=[Player(0, (5,10), 6, (255, 0, 0), "Red"), Player(0, (5,0), 6, (0, 255, 0), "Green")])
+Game.initialize_game(players=[Player(0, (5,10), 6, (0, 100, 0), "Red"), Player(0, (5,0), 6, (0, 255, 0), "Green")])
 
 running = True
 while running:

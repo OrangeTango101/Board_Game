@@ -6,15 +6,13 @@ class SimpleGameNN(nn.Module):
         super(SimpleGameNN, self).__init__()
         self.model = nn.Sequential(
             nn.Flatten(),        
-            nn.Linear(11*11, 1000), 
+            nn.Linear(11*11, 100), 
             nn.ReLU(),
-            nn.Linear(1000, 700),
+            nn.Linear(100, 50),
             nn.ReLU(),
-            nn.Linear(700, 500),
+            nn.Linear(50, 25),
             nn.ReLU(),
-            nn.Linear(500, 200),
-            nn.ReLU(),
-            nn.Linear(200, 1),
+            nn.Linear(25, 1),
             nn.Tanh()
   
 

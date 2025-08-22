@@ -103,6 +103,15 @@ class Game:
     
     def cell_empty(game_state, pos): 
         return pos not in game_state["piece_dict"] and pos not in game_state["op_piece_dict"]
+    
+    def print_board_state(board_state): 
+        grid = [[0] * Game.grid_width for _ in range(Game.grid_height)]
+        for i, num in enumerate(board_state):
+            row = i % Game.grid_height
+            col = i // Game.grid_height
+            grid[row][col] = num
+        for row in grid:
+            print(" ".join(f"{num:2}" for num in row))
 
     def display_game(board_state):   
         Game.display_screen.fill((255, 255, 255))
@@ -116,7 +125,7 @@ class Game:
                 color = Game.players[0].color
             if val < 0: 
                 color = Game.players[1].color
-
+            
             pygame.draw.rect(Game.display_screen, color, (pos[0]*Game.cell_width+1, pos[1]*Game.cell_width+1, 50, 50), width=1)
             if val != 0: 
                 value_text_surface = Game.value_font.render(f"{abs(val)}", False, (0,0,0))

@@ -6,7 +6,7 @@ from game import Player
 from user import User 
 from agents import *
 
-iterations = 20000
+iterations = 40000
 running = True
 
 pygame.init()
@@ -15,7 +15,7 @@ model1 = SimpleGameNN()
 model2 = SimpleGameNN()
 
 def start_new_game():   
-    sim_players = [ReinforcementAgent(0, (5,10), 2, (255, 0, 0), "Red", model1), RandomAgent(0, (5,4), 2 , (0, 255, 0), "Green")]
+    sim_players = [ReinforcementAgent(0, (5,10), 2, (255, 0, 0), "Red", model1), ReinforcementAgent(0, (5,4), 2 , (0, 255, 0), "Green", model1)]
     Game.initialize_game(players=sim_players)
 
 loss = nn.MSELoss()
@@ -44,6 +44,8 @@ def train_agents(winner):
             l.backward()
 
             agent.nn.optimizer.step()
+        if ReinforcementAgent.epsilon < 0.9: 
+            ReinforcementAgent.epsilon *= 1.000005
 
 start_new_game()
 
