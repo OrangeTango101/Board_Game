@@ -15,8 +15,12 @@ model1 = SimpleGameNN()
 model2 = SimpleGameNN()
 
 def start_new_game():   
-    sim_players = [ReinforcementAgent(0, (5,10), 2, (255, 0, 0), "Red", model1), ReinforcementAgent(0, (5,4), 2 , (0, 255, 0), "Green", model1)]
-    Game.initialize_game(players=sim_players)
+    game_state = {
+                    0: {"spawn_pos": (5,10), "num_pieces": 2, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)},
+                    1: {"spawn_pos": (5,4), "num_pieces": 2, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)} 
+                 }
+    sim_players = [ReinforcementAgent(0, (255, 0, 0), "Red", model1), ReinforcementAgent(1, (0, 255, 0), "Green", model1)]
+    Game.initialize_game(sim_players, game_state)
 
 loss = nn.MSELoss()
 a = 0.01
@@ -28,7 +32,7 @@ def train_agents(winner):
         episode_value = 0
         if winner == agent: 
             episode_value = 1
-            print(f"Iterations:{20000-iterations}")
+            print(f"Iterations:{40000-iterations}")
         elif winner: 
             episode_value = -1
 
