@@ -16,10 +16,10 @@ model2 = SimpleGameNN()
 
 def start_new_game():   
     game_state = {
-                    0: {"spawn_pos": (5,10), "num_pieces": 2, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)},
-                    1: {"spawn_pos": (5,4), "num_pieces": 2, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)} 
+                    0: {"spawn_pos": (5,8), "num_pieces": 2, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)},
+                    1: {"spawn_pos": (5,2), "num_pieces": 2, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)} 
                  }
-    sim_players = [ReinforcementAgent(0, (255, 0, 0), "Red", model1), ReinforcementAgent(1, (0, 255, 0), "Green", model1)]
+    sim_players = [ReinforcementAgent(0, (255, 0, 0), "Red", model2), ReinforcementAgent(1, (0, 255, 0), "Green", model1)]
     Game.initialize_game(sim_players, game_state)
 
 loss = nn.MSELoss()
@@ -34,13 +34,12 @@ def train_agents(winner):
             episode_value = 1
             print(f"Iterations:{40000-iterations}")
         elif winner: 
-            episode_value = -1
+            episode_value = 0
 
-        for state, reward, next_state in agent.episode: 
+        for indx, state in enumerate(agent.episode): 
             state_tensor = torch.tensor([state], dtype=torch.float)
-            next_tensor = torch.tensor([next_state], dtype=torch.float)
 
-            target = episode_value
+            target = max(episode_value*0.3, episode_value*(indx/len(agent.episode)))
             prediction = agent.nn(state_tensor)
 
             agent.nn.optimizer.zero_grad() 
@@ -66,7 +65,7 @@ while running:
 
     if Game.rounds == 30:
         iterations -= 1 
-        train_agents(None)
+        #train_agents(None)
         start_new_game()
 
     if iterations == 0: 
@@ -76,41 +75,6 @@ while running:
 
 pygame.quit()
 sys.exit()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-'''
-import pygame
-import sys
-from game import Game
-
-class TrainingGame(Game):
-    winners = []
-
-    def initialize_game(players=[], iterations=100): 
-        Game.initialize_game(players) 
-        TrainingGame.iterations = iterations
-
-    def test_over():
-        if sum([player.active for player in Game.players]) == 1:
-            TrainingGame.iterations -= 1 
-
-        if TrainingGame.iterations == 0: 
-            print(f"Training Over, Winners: {TrainingGame.winners}")  
-            pygame.quit()
-            sys.exit()
-'''
 
 
 

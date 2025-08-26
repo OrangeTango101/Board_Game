@@ -72,6 +72,9 @@ class Game:
     
     def get_inactive_player(): 
         return Game.players[(Game.player_turn+1)%2]
+    
+    def get_other_player(player):
+        return (player+1)%2
 
     def get_player(index):
         return Game.players[index]
@@ -182,12 +185,14 @@ class GameState:
         if type == "m":
             self.move_piece((int(action_decode[1]), int(action_decode[2])), (int(action_decode[3]), int(action_decode[4])), player)
         if type == "r":  
-            self.roll_piece((int(action_decode[1]), int(action_decode[2])), player)
+            self.roll_piece((int(action_decode[1]), int(action_decode[2])), None, player)
+        if type == "dr": 
+            self.roll_piece((int(action_decode[1]), int(action_decode[2])), int(action_decode[3]), player) 
 
-    def roll_piece(self, pos, player): 
+    def roll_piece(self, pos, value, player): 
         piece_dict = self.entire_state[player]["piece_dict"]
-
-        value = np.random.randint(1, 7) 
+        if not value: 
+            value = np.random.randint(1, 7) 
         piece_dict[pos][0] = value
         piece_dict[pos][1] = True
         self.check_matching_values(piece_dict[pos][2], player)
@@ -317,6 +322,23 @@ class GameState:
         for piece, data in p2_pieces.items(): 
             grid[Game.pos_to_grid_index(piece)] = -data[0]
         return grid
+    
+    def get_active_state(self): 
+        p1_pieces, p2_pieces = self.entire_state[0]["piece_dict"], self.entire_state[1]["piece_dict"]
+        grid = [0]*(Game.grid_width*Game.grid_height)
+        for piece, data in p1_pieces.items(): 
+            grid[Game.pos_to_grid_index(piece)] = data[1]
+        for piece, data in p2_pieces.items(): 
+            grid[Game.pos_to_grid_index(piece)] = -data[1]
+        return grid
+
+    def get_board_piece_state(self): 
+        state = []
+        state.extend(self.get_board_state())
+        state.extend([self.entire_state[0]["num_pieces"], self.entire_state[1]["num_pieces"]])
+
+        return state
+
     
 class Player: 
     
@@ -454,6 +476,16 @@ class Actions:
 
     def get_roll_codes(cells):
         return [Actions.get_roll_code(cell) for cell in cells]
+    
+    def get_droll_code(pos, val): 
+        return "dr"+"-"+str(pos[0])+"-"+str(pos[1])+"-"+str(val)
+    
+    def get_droll_codes(roll_code): 
+        action_decode = roll_code.split("-")
+        type = action_decode[0]
+        pos = (int(action_decode[1]), int(action_decode[2]))
+
+        return [Actions.get_droll_code(pos, val) for val in range(1,7)]
 
     def display():
         mouse_pos = pygame.mouse.get_pos()
