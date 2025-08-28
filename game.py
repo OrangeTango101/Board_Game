@@ -74,7 +74,7 @@ class Game:
         return Game.players[(Game.player_turn+1)%2]
     
     def get_other_player(player):
-        return (player+1)%2
+        return Game.players[(player+1)%2]
 
     def get_player(index):
         return Game.players[index]
@@ -121,6 +121,7 @@ class Game:
         pygame.display.flip()
 
 class GameState:
+    placements_per_turn = 3
 
     def __init__(self, entire_state): 
         self.entire_state = entire_state
@@ -131,11 +132,6 @@ class GameState:
         else: 
             raise KeyError(f"Key '{key}' not found.")
     
-    def generate_successor(self, player, action):
-        new_state = GameState(self.get_data_copy())
-        new_state.run_action(player, action)
-        return new_state
-    
     #Get Actions
     def get_actions(self, player):
         actions = defaultdict(list) 
@@ -143,7 +139,7 @@ class GameState:
 
         #get placements
         placement_actions = []
-        if player_state["num_pieces"] > 0: 
+        if player_state["num_pieces"] > 0 and player_state["num_placements"] > 0: 
             placement_actions = [Actions.get_placement_code(player_state["spawn_pos"])] if player_state["spawn_pos"] not in player_state["piece_dict"] else self.get_snake_placements(player_state["piece_dict"][player_state["spawn_pos"]][2], player)
         actions["p"].extend(placement_actions)
 
@@ -210,10 +206,12 @@ class GameState:
         player_state = self.entire_state[player]
         self.add_piece(position, 1, player)
         player_state["num_pieces"] -= 1
+        player_state["num_placements"] -= 1
 
     def start_turn(self, player):
         self.activate_pieces(player)
         self.check_all_matching_snakes(player)
+        self.entire_state[player]["num_placements"] = GameState.placements_per_turn
 
     def check_all_matching_snakes(self, player): 
         snake_dict = self.entire_state[player]["snake_dict"]
@@ -295,9 +293,55 @@ class GameState:
         longest_snake = max([len(snake_pieces) for snake_pieces in snake_dict.values()]) if snake_dict else 0
         return num_pieces == 0 and longest_snake <= 1 
     
+    #Create States 
+    def get_board_piece_state(self): 
+        state = []
+        state.extend(self.get_board_state())
+        state.extend([self.entire_state[0]["num_pieces"], self.entire_state[1]["num_pieces"]])
+        return state
+    
+    def get_board_state(self): 
+        p1_pieces, p2_pieces = self.entire_state[0]["piece_dict"], self.entire_state[1]["piece_dict"]
+        grid = [0]*(Game.grid_width*Game.grid_height)
+        for piece, data in p1_pieces.items(): 
+            grid[Game.pos_to_grid_index(piece)] = data[0]
+        for piece, data in p2_pieces.items(): 
+            grid[Game.pos_to_grid_index(piece)] = -data[0]
+        return grid
+
+    def generate_successor(self, player, action):
+        new_state = GameState(self.get_data_copy())
+        new_state.run_action(player, action)
+        return new_state
+    
+    def flip_perspective(self): 
+        x_line = (Game.grid_height//2) 
+        y_line = (Game.grid_width//2)
+
+        #symmetrically flip positions 
+        for player in self.entire_state: 
+            for snake in self.entire_state[player]["snake_dict"]: 
+                new_pieces = [((2*x_line)-piece[0], (2*y_line)-piece[1]) for piece in self.entire_state[player]["snake_dict"][snake]]
+                self.entire_state[player]["snake_dict"][snake] = new_pieces
+            new_piece_dict = defaultdict(list)
+            for piece in self.entire_state[player]["piece_dict"]: 
+                new_piece = ((2*x_line)-piece[0], (2*y_line)-piece[1]) 
+                new_piece_dict[new_piece] = self.entire_state[player]["piece_dict"][piece]
+            self.entire_state[player]["piece_dict"] = new_piece_dict
+
+        #switch player piece data 
+        temp_piece_data = (self.entire_state[0]["snake_dict"], self.entire_state[0]["piece_dict"], self.entire_state[0]["num_pieces"])
+        self.entire_state[0]["snake_dict"], self.entire_state[0]["piece_dict"], self.entire_state[0]["num_pieces"]  = self.entire_state[1]["snake_dict"], self.entire_state[1]["piece_dict"], self.entire_state[1]["num_pieces"]
+        self.entire_state[1]["snake_dict"], self.entire_state[1]["piece_dict"], self.entire_state[1]["num_pieces"] = temp_piece_data
+        
+
+    
     #Helpful Methods 
     def get_data(self):
         return self.entire_state
+    
+    def get_copy(self):
+        return GameState(self.get_data_copy())
     
     def get_data_copy(self): 
         return copy.deepcopy(self.entire_state)
@@ -313,31 +357,6 @@ class GameState:
     
     def pos_empty(self, pos): 
         return all([pos not in self.entire_state[player]["piece_dict"] for player in list(self.entire_state)])
-    
-    def get_board_state(self): 
-        p1_pieces, p2_pieces = self.entire_state[0]["piece_dict"], self.entire_state[1]["piece_dict"]
-        grid = [0]*(Game.grid_width*Game.grid_height)
-        for piece, data in p1_pieces.items(): 
-            grid[Game.pos_to_grid_index(piece)] = data[0]
-        for piece, data in p2_pieces.items(): 
-            grid[Game.pos_to_grid_index(piece)] = -data[0]
-        return grid
-    
-    def get_active_state(self): 
-        p1_pieces, p2_pieces = self.entire_state[0]["piece_dict"], self.entire_state[1]["piece_dict"]
-        grid = [0]*(Game.grid_width*Game.grid_height)
-        for piece, data in p1_pieces.items(): 
-            grid[Game.pos_to_grid_index(piece)] = data[1]
-        for piece, data in p2_pieces.items(): 
-            grid[Game.pos_to_grid_index(piece)] = -data[1]
-        return grid
-
-    def get_board_piece_state(self): 
-        state = []
-        state.extend(self.get_board_state())
-        state.extend([self.entire_state[0]["num_pieces"], self.entire_state[1]["num_pieces"]])
-
-        return state
 
     
 class Player: 
@@ -458,6 +477,7 @@ class Actions:
 
     def space_action(event): 
         Game.show_display = not Game.show_display   
+        #Game.game_state.flip_perspective()
     
     def get_movement_code(pos1, pos2): 
         return "m"+"-"+str(pos1[0])+"-"+str(pos1[1])+"-"+str(pos2[0])+"-"+str(pos2[1])
