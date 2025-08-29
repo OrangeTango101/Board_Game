@@ -60,8 +60,7 @@ class ReinforcementAgent(Agent):
                         highest_rating = rating
                         best_action = action 
 
-        game_state.run_action(self.id, best_action)
-        self.episode.append(game_state.get_copy())
+        self.run_action(best_action)
         
     def train(self, episode, episode_value): 
         if not episode: 
@@ -79,12 +78,6 @@ class ReinforcementAgent(Agent):
             l.backward()
 
             self.optimizer.step()
-
-    def nn_train(self, episode, episode_value): 
-        ...
-
-    def regression_train(self, episode, episode_value): 
-        ...
 
     def state_eval(self, game_state): 
         board_state = game_state.get_board_piece_state()

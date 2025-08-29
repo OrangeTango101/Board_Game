@@ -13,13 +13,19 @@ class Game:
     cell_width = 50
     show_display = True
 
-    def initialize_game(players, initial_state): 
+    initial_state = {
+                        0: {"spawn_pos": (5,10), "num_pieces": 6, "num_placements": 3, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)},
+                        1: {"spawn_pos": (5,0), "num_pieces": 6, "num_placements": 3, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)} 
+                    }
+
+    def initialize_game(players): 
         Game.display_screen = pygame.display.set_mode((Game.display_width, Game.display_height))
         Game.value_font = pygame.font.SysFont(None, 20)
         Game.text_font = pygame.font.SysFont(None, 40)
         Game.text_font2 = pygame.font.SysFont(None, 30)
 
-        Game.game_state = GameState(initial_state) 
+        Game.game_state = GameState(copy.deepcopy(Game.initial_state)) 
+        Game.state_history = []
         Game.rounds = 0
         Game.winner = None
         Game.players = players
@@ -48,6 +54,21 @@ class Game:
            
         if Game.show_display:
             Game.display_game()
+
+    def back_one_step():
+        if Game.state_history:
+            Game.state_history.pop()
+            if Game.state_history: 
+                Game.game_state = Game.state_history[-1][0].get_copy()
+                Game.player_turn = Game.state_history[-1][1]
+                Game.active_player = Game.get_active_player()
+            else:
+                Game.game_state = GameState(copy.deepcopy(Game.initial_state))
+                Game.player_turn = 0
+                Game.active_player = Game.get_active_player()
+            print(f"Went back to move {len(Game.state_history)}")
+        else:
+            print("Cannot go back further")
     
     def get_game_state(): 
         return Game.game_state
@@ -376,7 +397,17 @@ class Player:
 
     def choose_action(self, game_state): 
         ...
-    
+
+    def run_action(self, action): 
+        game_state = Game.game_state
+        legal_actions = list(chain.from_iterable(game_state.get_actions(self.id).values()))
+
+        if action in legal_actions: 
+            game_state.run_action(self.id, action)
+            saved_state = game_state.get_copy()
+            self.episode.append(saved_state)
+            Game.state_history.append((saved_state, self.id))
+
     def get_inactive_color(self):
         return (min([self.color[0]+200, 255]), min([self.color[1]+200, 255]), min([self.color[2]+200, 255]))
     
@@ -476,35 +507,26 @@ class Actions:
     def click_action(event):
         selected_cell = Game.coords_to_grid_pos(event.pos)
         game_state = Game.game_state
-        player_turn = Game.player_turn
-        legal_actions = list(chain.from_iterable(game_state.get_actions(player_turn).values()))
+        active_player = Game.active_player
 
         if event.button == 1: 
             if game_state.pos_empty(selected_cell): 
-                action = Actions.get_placement_code(selected_cell)
-                if action in legal_actions: 
-                    game_state.run_action(player_turn, action)
-                    Game.active_player.episode.append(game_state.get_copy())
+                active_player.run_action(Actions.get_placement_code(selected_cell))
             else: 
-                action = Actions.get_roll_code(selected_cell)
-                if action in legal_actions: 
-                    game_state.run_action(player_turn, action)
-                    Game.active_player.episode.append(game_state.get_copy())
+                active_player.run_action(Actions.get_roll_code(selected_cell))
                 
         if event.button == 3: 
             if Actions.store_input: 
-                action = Actions.get_movement_code(Actions.store_input, selected_cell)
-                if action in legal_actions: 
-                    game_state.run_action(player_turn, action)
-                    Game.active_player.episode.append(game_state.get_copy())
+                active_player.run_action(Actions.get_movement_code(Actions.store_input, selected_cell))
                 Actions.store_input = None 
-            elif selected_cell in game_state.get_player_data(player_turn)["piece_dict"]: 
+            elif selected_cell in game_state.get_player_data(active_player.id)["piece_dict"]: 
                 Actions.store_input = selected_cell
 
     def space_action(event): 
         Game.show_display = not Game.show_display   
         #Game.game_state.flip_perspective()
-    
+
+
     def get_movement_code(pos1, pos2): 
         return "m"+"-"+str(pos1[0])+"-"+str(pos1[1])+"-"+str(pos2[0])+"-"+str(pos2[1])
 

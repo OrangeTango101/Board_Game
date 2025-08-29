@@ -22,7 +22,7 @@ def start_new_game():
     
     saved_agents = [ReinforcementAgent(0, (255, 0, 0), "Red", model1, [ReinforcementAgent.win_bias, ReinforcementAgent.mobility_bias, ReinforcementAgent.dist_bias]), ReinforcementAgent(1, (0, 255, 0), "Green", model2, [ReinforcementAgent.win_bias, ReinforcementAgent.mobility_bias, ReinforcementAgent.dist_bias, ReinforcementAgent.piece_bias, ReinforcementAgent.snakes_bias])]
 
-    sim_players = [Player(0, (255, 0, 0), "Red"), ReinforcementAgent(1, (0, 255, 0), "Green", model2, [ReinforcementAgent.win_bias], "model_1_20250828-214128.pth")]
+    sim_players = [ReinforcementAgent(0, (255, 0, 0), "Red", model1, [ReinforcementAgent.win_bias]), ReinforcementAgent(1, (0, 255, 0), "Green", model2, [ReinforcementAgent.win_bias], "model_1_20250828-214128.pth")]
     Game.initialize_game(sim_players, game_state)
 
 
