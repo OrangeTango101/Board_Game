@@ -6,16 +6,15 @@ class SimpleGameNN(nn.Module):
         super(SimpleGameNN, self).__init__()
         self.model = nn.Sequential(
             nn.Flatten(),        
-            nn.Linear((11*11)+2, 40), 
+            nn.Linear((11*11)+2, 200), 
             nn.ReLU(),
-            nn.Linear(40, 20),
+            nn.Linear(200, 100),
             nn.ReLU(),
-            nn.Linear(20, 1),
+            nn.Linear(100, 50),
+            nn.ReLU(),
+            nn.Linear(50, 1),
             nn.Tanh()
-  
-
         )
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
     def forward(self, x):
         return self.model(x)
     

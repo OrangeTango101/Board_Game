@@ -1,5 +1,7 @@
+import os
 import pygame
 from game import *
+from agents import *
 
 class User: 
     close_game = False
@@ -26,6 +28,19 @@ class User:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     Actions.space_action(event)
+                if event.key == pygame.K_0: 
+                    if isinstance(Game.players[0], ReinforcementAgent): 
+                        model_name = Game.players[0].save_model()
+                        print(f"Downloaded model {model_name} to {os.getcwd()}")
+                if event.key == pygame.K_1: 
+                    if isinstance(Game.players[1], ReinforcementAgent): 
+                        model_name = Game.players[1].save_model()
+                        print(f"Downloaded model {model_name} to {os.getcwd()}")
+                if event.key == pygame.K_UP:
+                    Agent.action_delay += 0.5
+                if event.key == pygame.K_DOWN and Agent.action_delay >= 0.5:
+                    Agent.action_delay -= 0.5
+
 
 class User_Testing: 
     close_game = False

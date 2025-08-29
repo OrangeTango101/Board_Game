@@ -272,7 +272,7 @@ class GameState:
         elif Snake.is_empty(snake_id_to_remove, snake_dict): 
             snake_dict.pop(snake_id_to_remove)
 
-    #State of the Game
+    #Get game features
     def get_winner(self): 
         for player in self.entire_state: 
             if self.no_actions(player) or self.spawn_occupied(player): 
@@ -292,6 +292,16 @@ class GameState:
         snake_dict, num_pieces = self.entire_state[player]["snake_dict"], self.entire_state[player]["num_pieces"]
         longest_snake = max([len(snake_pieces) for snake_pieces in snake_dict.values()]) if snake_dict else 0
         return num_pieces == 0 and longest_snake <= 1 
+    
+    def get_total_pieces(self, player): 
+        return len(self.entire_state[player]["piece_dict"])+self.entire_state[player]["num_pieces"]
+    
+    def get_num_immobile_snakes(self, player): 
+        num_immobile = 0
+        for snake_pieces in self.entire_state[player]["snake_dict"].values():
+            if Snake.is_immobile(snake_pieces, self.entire_state[player]["piece_dict"]): 
+                num_immobile += 1
+        return num_immobile
     
     #Create States 
     def get_board_piece_state(self): 
@@ -334,8 +344,6 @@ class GameState:
         self.entire_state[0]["snake_dict"], self.entire_state[0]["piece_dict"], self.entire_state[0]["num_pieces"]  = self.entire_state[1]["snake_dict"], self.entire_state[1]["piece_dict"], self.entire_state[1]["num_pieces"]
         self.entire_state[1]["snake_dict"], self.entire_state[1]["piece_dict"], self.entire_state[1]["num_pieces"] = temp_piece_data
         
-
-    
     #Helpful Methods 
     def get_data(self):
         return self.entire_state
@@ -357,14 +365,14 @@ class GameState:
     
     def pos_empty(self, pos): 
         return all([pos not in self.entire_state[player]["piece_dict"] for player in list(self.entire_state)])
-
-    
+ 
 class Player: 
     
     def __init__(self, id, color, name): 
         self.id = id
         self.color = color
         self.player_name = name
+        self.episode = []
 
     def choose_action(self, game_state): 
         ...
@@ -413,6 +421,14 @@ class Snake:
     def get_empty_perimeter(snake_pieces, enemy_pieces): 
         return list(set(chain.from_iterable([Piece.get_empty_adjacent(piece, snake_pieces, enemy_pieces) for piece in snake_pieces]))) 
 
+    def is_immobile(pieces, piece_dict): 
+        if len(pieces) < 4: 
+            return False
+        for piece in pieces: 
+            if Piece.is_immobile(piece, piece_dict): 
+                return True
+        return False
+
     def is_active(pieces, piece_dict): 
         if len(pieces) == 1: 
             return not piece_dict[pieces[0]][1]
@@ -430,7 +446,14 @@ class Snake:
 
 class Piece:
     rel_edge_positions = [(1,0), (-1,0), (0,1), (0,-1)]
-    
+    rel_corner_positions = [[(1,0), (0,1), (1,1)], [(1,0), (0,-1), (-1,-1)], [(-1,0), (0,1), (-1,1)], [(-1,0), (0,-1), (-1,-1)]]
+
+    def is_immobile(pos, pieces): 
+        for corner in Piece.rel_corner_positions: 
+            if all([(pos[0]+rel_pos[0], pos[1]+rel_pos[1]) in pieces for rel_pos in corner]):
+                return True 
+        return False
+
     def get_connected_snakes(pos, pieces): 
         return list(set([pieces[(pos[0]+rel_edge[0], pos[1]+rel_edge[1])][2] for rel_edge in Piece.rel_edge_positions if (pos[0]+rel_edge[0], pos[1]+rel_edge[1]) in pieces]))
 
@@ -461,16 +484,19 @@ class Actions:
                 action = Actions.get_placement_code(selected_cell)
                 if action in legal_actions: 
                     game_state.run_action(player_turn, action)
+                    Game.active_player.episode.append(game_state.get_copy())
             else: 
                 action = Actions.get_roll_code(selected_cell)
                 if action in legal_actions: 
                     game_state.run_action(player_turn, action)
+                    Game.active_player.episode.append(game_state.get_copy())
                 
         if event.button == 3: 
             if Actions.store_input: 
                 action = Actions.get_movement_code(Actions.store_input, selected_cell)
                 if action in legal_actions: 
                     game_state.run_action(player_turn, action)
+                    Game.active_player.episode.append(game_state.get_copy())
                 Actions.store_input = None 
             elif selected_cell in game_state.get_player_data(player_turn)["piece_dict"]: 
                 Actions.store_input = selected_cell

@@ -1,3 +1,5 @@
+import os
+import time
 from game import *
 from model import *
 import torch
@@ -19,16 +21,22 @@ class RandomAgent(Agent):
         game_state.run_action(self.id, np.random.choice(chosen_type))
         
 class ReinforcementAgent(Agent):
-    epsilon = 0.5 
+    epsilon = 0.95
 
-    def __init__(self, id, color, name, model, biases, training=None): 
+    def __init__(self, id, color, name, model, biases, training_file=None): 
         super().__init__(id, color, name)
-        self.training = training
-        self.episode = []
-        self.nn = model
         self.biases = biases
+        self.nn = model
+        self.optimizer = torch.optim.Adam(self.nn.parameters(), lr=1e-3)
+
+        #load training 
+        if training_file: 
+            data = torch.load(training_file)
+            self.nn.load_state_dict(data["model_state_dict"])
+            self.optimizer.load_state_dict(data["optimizer_state_dict"])
      
     def choose_action(self, game_state): 
+        time.sleep(Agent.action_delay)
         legal_actions = game_state.get_actions(self.id)
         highest_rating = float('-inf')
         best_action = None
@@ -66,57 +74,69 @@ class ReinforcementAgent(Agent):
             target = max(episode_value*0.3, episode_value*(indx/len(episode)), key=abs)
             prediction = self.nn(state_tensor)
 
-            self.nn.optimizer.zero_grad() 
+            self.optimizer.zero_grad() 
             l = loss(prediction, torch.tensor([[target]], dtype=torch.float)) 
             l.backward()
 
-            self.nn.optimizer.step()
+            self.optimizer.step()
 
+    def nn_train(self, episode, episode_value): 
+        ...
+
+    def regression_train(self, episode, episode_value): 
+        ...
 
     def state_eval(self, game_state): 
         board_state = game_state.get_board_piece_state()
 
+        if self.id == 0: 
+            #print([bias(self.id, game_state) for bias in self.biases])
+            ...
+
         return self.nn(torch.tensor([board_state], dtype=torch.float)).item()+sum([bias(self.id, game_state) for bias in self.biases])
     
     def win_bias(player, game_state): 
-        if game_state.get_winner() and game_state.get_winner() == player: 
+        if game_state.get_winner() is not None and game_state.get_winner() == player: 
             return 100000
         else: 
             return 0
 
     def dist_bias(player, game_state): 
-        distance_bias = 1
-
-        closest_dist = 1000
+        closest_dist = 1000000
         for piece in game_state[player]["piece_dict"]: 
             enemy_spawn = game_state[(player+1)%2]["spawn_pos"]
             dist = abs(enemy_spawn[0]-piece[0])+abs(enemy_spawn[1]-piece[1])
             if dist < closest_dist: 
                 closest_dist = dist
-        distance_bias += 1/max(closest_dist, 1)
-
-        return distance_bias
+        return 0.2/max(closest_dist, 1)
+    
+    def piece_bias(player, game_state): 
+        return (game_state.get_total_pieces(player)-game_state.get_total_pieces((player+1)%2))*2
+    
+    def mobility_bias(player, game_state):
+        return -game_state.get_num_immobile_snakes(player)/10
+    
+    def snakes_bias(player, game_state):
+        return len(game_state[player]["snake_dict"])*3
 
     def flip_episode_perspective(episode): 
         for game_state in episode: 
             game_state.flip_perspective()
         return episode
+    
+    def save_model(self): 
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        torch.save({
+        "model_state_dict": self.nn.state_dict(),
+        "optimizer_state_dict": self.optimizer.state_dict(),
+        }, f"model_{self.id}_{timestamp}.pth")
+
+        return f"model_{self.id}_{timestamp}.pth"
 
 
 
-    '''
-    def flip_episode_perspective(episode): 
-        flipped_episode = []
-        x_line = (Game.grid_height//2) 
-        y_line = (Game.grid_width//2)
 
-        for board_piece_state in episode: 
-            flipped_board = board_piece_state[:-2][::-1]
-            flipped_pieces = board_piece_state[-2:][::-1]
-            flipped_board_piece_state = flipped_board+flipped_pieces
-            flipped_episode.append(flipped_board_piece_state)
-        return flipped_episode
-    '''
+
             
 
         
@@ -131,6 +151,4 @@ class ReinforcementAgent(Agent):
 
 
      
-         
-
-
+        
