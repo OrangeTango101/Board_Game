@@ -1,8 +1,8 @@
 
-<h1>Making a Board Game</h1>
+<h1>Making A Board Game</h1>
 
 <h2>Description</h2>
-Project consists of a 2-player chance/strategy board game I invented. The game is played on an 11x11 board and the objective is to occupy the opponents spawn on the other end of the board. A player accomplishes this by placing, moving, and rolling their pieces through the rules dictated below. A user can additionally train and play against reinforcment learning agents which use a pytorch neural network model.
+The project consists of a 2-player chance/strategy board game I invented. The game is played on an 11x11 board and the objective is to occupy the opponents spawn on the other end of the board. A player accomplishes this by placing, moving, and rolling their pieces through the rules dictated below. A user can additionally train and play against reinforcment learning agents which use a pytorch neural network model.
 
 
 <h2>Languages and Utilities Used</h2>
@@ -58,39 +58,26 @@ Project consists of a 2-player chance/strategy board game I invented. The game i
  
 <h3>Controls</h3>
 
+- <b>Left Click</b>
+  - Attempts to place a piece if the position in unoccupied
+  - Attempts to roll a piece if the position is occupied
+ 
+- <b>Right Click</b>
+  - Attempts to select a piece to move if none has already been selected
+  - Attempts to move a piece if one has already been selected
+ 
+- <b>Left Arrow Key<b>
+  - Will undo the last move 
+ 
+- <b>Space Bar</b>
+  - Will toggle the visual display during agent training
+ 
+- <b>Up arrow key</b>
+  - Increases the time delay between agent actions
+ 
+- <b>Down arrow key</b>
+  - Decreases the time delay between agent actions 
 
-
-
-<h2>Program walk-through:</h2>
-
-<p align="center">
-Launch the utility: <br/>
-<img src="https://i.imgur.com/62TgaWL.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
-<br />
-<br />
-Select the disk:  <br/>
-<img src="https://i.imgur.com/tcTyMUE.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
-<br />
-<br />
-Enter the number of passes: <br/>
-<img src="https://i.imgur.com/nCIbXbg.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
-<br />
-<br />
-Confirm your selection:  <br/>
-<img src="https://i.imgur.com/cdFHBiU.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
-<br />
-<br />
-Wait for process to complete (may take some time):  <br/>
-<img src="https://i.imgur.com/JL945Ga.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
-<br />
-<br />
-Sanitization complete:  <br/>
-<img src="https://i.imgur.com/K71yaM2.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
-<br />
-<br />
-Observe the wiped disk:  <br/>
-<img src="https://i.imgur.com/AeZkvFQ.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
-</p>
 
 <!--
  ```diff
