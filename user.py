@@ -10,7 +10,6 @@ class User:
     store_input = None
     
     def register_events(): 
-        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 User.close_game = True
@@ -38,10 +37,10 @@ class User:
                         print(f"Downloaded model {model_name} to {os.getcwd()}")
                 if event.key == pygame.K_UP:
                     Agent.action_delay += 0.5
-                    print("Agent delay is now: {Agent.action_delay} seconds")
+                    print(f"Agent delay is now: {Agent.action_delay} seconds")
                 if event.key == pygame.K_DOWN and Agent.action_delay >= 0.5:
                     Agent.action_delay -= 0.5
-                    print("Agent delay is now: {Agent.action_delay} seconds")
+                    print(f"Agent delay is now: {Agent.action_delay} seconds")
                 if event.key == pygame.K_LEFT: 
                     Game.back_one_step()
 

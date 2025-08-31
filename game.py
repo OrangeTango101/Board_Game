@@ -14,7 +14,7 @@ class Game:
     show_display = True
 
     initial_state = {
-                        0: {"spawn_pos": (5,10), "num_pieces": 6, "num_placements": 3, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)},
+                        0: {"spawn_pos": (5,0), "num_pieces": 6, "num_placements": 3, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)},
                         1: {"spawn_pos": (5,0), "num_pieces": 6, "num_placements": 3, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)} 
                     }
 
@@ -110,28 +110,36 @@ class Game:
             print(" ".join(f"{num:2}" for num in row))
 
     def display_game():   
-        entire_state = Game.game_state.get_data()
-        board_state = Game.game_state.get_board_state()
         players = Game.players
+        game_state = Game.game_state
+        p0_pieces = game_state[0]["piece_dict"]
+        p1_pieces = game_state.enemy_piece_dict(1)
 
         Game.display_screen.fill((255, 255, 255))
 
-        for indx, val in enumerate(board_state): 
+        for indx in range(Game.grid_width*Game.grid_height):
             pos = Game.grid_index_to_pos(indx)
+            player = None
             color = (100, 100, 100)
-            player = Game.game_state.get_player_from_pos(pos)
+            if pos in p0_pieces:
+                player = 0
+            if pos in p1_pieces: 
+                player = 1
 
             if player is not None: 
-                if entire_state[player]["piece_dict"][pos][1]: 
-                    pygame.draw.rect(Game.display_screen, Game.players[player].get_inactive_color(), (pos[0]*Game.cell_width+1, pos[1]*Game.cell_width+1, 50-1, 50-1))
-                color = Game.players[player].color
+                piece_dict = p0_pieces if player == 0 else p1_pieces
+                val = piece_dict[pos][0]
+                
+                if piece_dict[pos][1]: 
+                    pygame.draw.rect(Game.display_screen, players[player].get_inactive_color(), (pos[0]*Game.cell_width+1, pos[1]*Game.cell_width+1, 50-1, 50-1))
+                color = players[player].color
                 value_text_surface = Game.value_font.render(f"{abs(val)}", False, (0,0,0))
                 Game.display_screen.blit(value_text_surface, (pos[0]*Game.cell_width+21, pos[1]*Game.cell_width+18))
 
             pygame.draw.rect(Game.display_screen, color, (pos[0]*Game.cell_width+1, pos[1]*Game.cell_width+1, 50, 50), width=1)
 
-        for player in entire_state: 
-            pygame.draw.circle(Game.display_screen, players[player].color, (entire_state[player]["spawn_pos"][0]*50+25, entire_state[player]["spawn_pos"][1]*50+25), 20, width=1)
+        pygame.draw.circle(Game.display_screen, players[0].color, (game_state[0]["spawn_pos"][0]*50+25, game_state[0]["spawn_pos"][1]*50+25), 20, width=1)
+        pygame.draw.circle(Game.display_screen, players[1].color, (Piece.reflected(game_state[1]["spawn_pos"])[0]*50+25, Piece.reflected(game_state[1]["spawn_pos"])[1]*50+25), 20, width=1)
                 
         Actions.display()
 
@@ -173,7 +181,7 @@ class GameState:
         return actions
 
     def get_snake_movements(self, snake, player): 
-        snake_pieces, piece_dict, enemy_pieces = self.entire_state[player]["snake_dict"][snake], self.entire_state[player]["piece_dict"], self.entire_state[(player+1)%2]["piece_dict"]
+        snake_pieces, piece_dict, enemy_pieces = self.entire_state[player]["snake_dict"][snake], self.entire_state[player]["piece_dict"], self.enemy_piece_dict((player+1)%2)
         movements = [] 
         if Snake.num_inactive(snake_pieces, piece_dict) != 1: 
             return movements
@@ -190,7 +198,7 @@ class GameState:
         return Actions.get_roll_codes([piece for piece in snake_pieces if not piece_dict[piece][1]])
 
     def get_snake_placements(self, snake, player): 
-        snake_pieces, enemy_pieces = self.entire_state[player]["snake_dict"][snake], self.entire_state[(player+1)%2]["piece_dict"]
+        snake_pieces, enemy_pieces = self.entire_state[player]["snake_dict"][snake], self.enemy_piece_dict((player+1)%2)
         return Actions.get_placement_codes(Snake.get_empty_perimeter(snake_pieces, enemy_pieces))
 
     #Make Actions
@@ -215,10 +223,11 @@ class GameState:
         self.check_matching_values(piece_dict[pos][2], player)
 
     def move_piece(self, to_move, move_loc, player): 
-        piece_dict, enemy_pieces = self.entire_state[player]["piece_dict"], self.entire_state[(player+1)%2]["piece_dict"]
+        piece_dict, enemy_pieces = self.entire_state[player]["piece_dict"], self.enemy_piece_dict((player+1)%2)
+        
         to_move_val = piece_dict[to_move][0]
         if move_loc in enemy_pieces: 
-            self.remove_piece(move_loc, (player+1)%2)
+            self.remove_piece(Piece.reflected(move_loc), (player+1)%2)
         self.add_piece(move_loc, to_move_val, player)
         self.remove_piece(to_move, player)
         self.make_snake_inactive(piece_dict[move_loc][2], player)
@@ -301,7 +310,7 @@ class GameState:
         return None 
 
     def spawn_occupied(self, player):
-        spawn_pos, enemy_pieces = self.entire_state[player]["spawn_pos"], self.entire_state[(player+1)%2]["piece_dict"]
+        spawn_pos, enemy_pieces = self.entire_state[player]["spawn_pos"], self.enemy_piece_dict((player+1)%2)
         return spawn_pos in enemy_pieces
 
     def turn_over(self, player): 
@@ -325,19 +334,19 @@ class GameState:
         return num_immobile
     
     #Create States 
-    def get_board_piece_state(self): 
+    def get_board_piece_state(self, player): 
         state = []
-        state.extend(self.get_board_state())
+        state.extend(self.get_board_state(player))
         state.extend([self.entire_state[0]["num_pieces"], self.entire_state[1]["num_pieces"]])
         return state
     
-    def get_board_state(self): 
-        p1_pieces, p2_pieces = self.entire_state[0]["piece_dict"], self.entire_state[1]["piece_dict"]
+    def get_board_state(self, player): 
+        player_pieces, enemy_pieces = self.entire_state[player]["piece_dict"], self.enemy_piece_dict((player+1)%2)
         grid = [0]*(Game.grid_width*Game.grid_height)
-        for piece, data in p1_pieces.items(): 
-            grid[Game.pos_to_grid_index(piece)] = data[0]
-        for piece, data in p2_pieces.items(): 
+        for piece, data in player_pieces.items(): 
             grid[Game.pos_to_grid_index(piece)] = -data[0]
+        for piece, data in enemy_pieces.items(): 
+            grid[Game.pos_to_grid_index(piece)] = data[0]
         return grid
 
     def generate_successor(self, player, action):
@@ -384,8 +393,15 @@ class GameState:
                 return player
         return None
     
-    def pos_empty(self, pos): 
-        return all([pos not in self.entire_state[player]["piece_dict"] for player in list(self.entire_state)])
+    def enemy_piece_dict(self, player): 
+        reflected_piece_dict = defaultdict(list)
+        for piece in self.entire_state[player]["piece_dict"]: 
+                new_piece = Piece.reflected(piece)
+                reflected_piece_dict[new_piece] = self.entire_state[player]["piece_dict"][piece]
+        return reflected_piece_dict
+    
+    def pos_empty(self, player, pos): 
+        return pos not in self.entire_state[player]["piece_dict"]
  
 class Player: 
     
@@ -485,6 +501,11 @@ class Piece:
                 return True 
         return False
 
+    def reflected(piece):
+        x_line = Game.grid_height//2
+        y_line = Game.grid_width//2
+        return (2*x_line-piece[0], 2*y_line-piece[1]) 
+
     def get_connected_snakes(pos, pieces): 
         return list(set([pieces[(pos[0]+rel_edge[0], pos[1]+rel_edge[1])][2] for rel_edge in Piece.rel_edge_positions if (pos[0]+rel_edge[0], pos[1]+rel_edge[1]) in pieces]))
 
@@ -505,12 +526,13 @@ class Actions:
     store_input = None
 
     def click_action(event):
-        selected_cell = Game.coords_to_grid_pos(event.pos)
+        turn = Game.player_turn
+        selected_cell = Game.coords_to_grid_pos(event.pos) if turn == 0 else Piece.reflected(Game.coords_to_grid_pos(event.pos))
         game_state = Game.game_state
         active_player = Game.active_player
 
         if event.button == 1: 
-            if game_state.pos_empty(selected_cell): 
+            if game_state.pos_empty(turn, selected_cell): 
                 active_player.run_action(Actions.get_placement_code(selected_cell))
             else: 
                 active_player.run_action(Actions.get_roll_code(selected_cell))
@@ -525,7 +547,6 @@ class Actions:
     def space_action(event): 
         Game.show_display = not Game.show_display   
         #Game.game_state.flip_perspective()
-
 
     def get_movement_code(pos1, pos2): 
         return "m"+"-"+str(pos1[0])+"-"+str(pos1[1])+"-"+str(pos2[0])+"-"+str(pos2[1])

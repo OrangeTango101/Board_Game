@@ -11,25 +11,27 @@ running = True
 
 pygame.init()
 
+'''
+defensive model: "model_0_20250831-002705.pth"
+highly trained offense: "model_1_20250828-214128.pth"
+
+
+'''
+
 model1 = SimpleGameNN()
 model2 = SimpleGameNN()
+epsilon1 = 0.7
+epsilon2 = 0.7
 
 def start_new_game():   
-    game_state = {
-                    0: {"spawn_pos": (5,10), "num_pieces": 6, "num_placements": 3, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)},
-                    1: {"spawn_pos": (5,0), "num_pieces": 6, "num_placements": 3, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)} 
-                 }
-    
-    saved_agents = [ReinforcementAgent(0, (255, 0, 0), "Red", model1, [ReinforcementAgent.win_bias, ReinforcementAgent.mobility_bias, ReinforcementAgent.dist_bias]), ReinforcementAgent(1, (0, 255, 0), "Green", model2, [ReinforcementAgent.win_bias, ReinforcementAgent.mobility_bias, ReinforcementAgent.dist_bias, ReinforcementAgent.piece_bias, ReinforcementAgent.snakes_bias])]
-
-    sim_players = [ReinforcementAgent(0, (255, 0, 0), "Red", model1, [ReinforcementAgent.win_bias]), ReinforcementAgent(1, (0, 255, 0), "Green", model2, [ReinforcementAgent.win_bias], "model_1_20250828-214128.pth")]
-    Game.initialize_game(sim_players, game_state)
+    sim_players = [ReinforcementAgent(0, (255, 0, 0), "Red", model1, [ReinforcementAgent.win_bias], epsilon1, True), ReinforcementAgent(1, (0, 255, 0), "Green", model2, [ReinforcementAgent.win_bias], epsilon2, False, "model_1_20250828-214128.pth")]
+    Game.initialize_game(sim_players)
 
 
 def train_agents(winner):
     reinforcementAgents = [agent for agent in Game.players if isinstance(agent, ReinforcementAgent)]
     if winner: 
-        print(f"Iterations:{40000-iterations} Epsilon:{ReinforcementAgent.epsilon}")
+        print(f"Iterations:{40000-iterations} Epsilons:{epsilon1}, {epsilon2}")
 
     for agent in reinforcementAgents: 
         episode_value = 0
@@ -37,12 +39,15 @@ def train_agents(winner):
             episode_value = 1 
         elif winner: 
             episode_value = -1 
-        agent.train(None, episode_value)
+        if agent._train: 
+            agent.train(None, episode_value)
 
+    '''
     if winner: 
         loser = Game.get_other_player(winner.id)
         if loser in reinforcementAgents: 
-            loser.train(ReinforcementAgent.flip_episode_perspective(winner.episode), 1)
+            loser.train(winner.episode, 1)
+    '''
 
         
 start_new_game()    
@@ -54,16 +59,17 @@ while running:
     
     if Game.winner:
         iterations -= 1 
-        if ReinforcementAgent.epsilon < 0.9: 
-            ReinforcementAgent.epsilon *= 1.00005
+        epsilon1 = epsilon1 * 1.00005 if epsilon1 < 0.9 else epsilon1
+        epsilon2 = epsilon2 * 1.00005 if epsilon2 < 0.9 else epsilon2
+
         train_agents(Game.winner)
         start_new_game()
 
-    if Game.rounds == 50:
+    if Game.rounds == 100:
         iterations -= 1 
-        if ReinforcementAgent.epsilon < 0.9: 
-            ReinforcementAgent.epsilon *= 1.00005
-        train_agents(None)
+        epsilon1 = epsilon1 * 1.00005 if epsilon1 < 0.9 else epsilon1
+        epsilon2 = epsilon2 * 1.00005 if epsilon2 < 0.9 else epsilon2
+        #train_agents(None)
         start_new_game()
 
     if iterations == 0: 

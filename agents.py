@@ -21,11 +21,12 @@ class RandomAgent(Agent):
         game_state.run_action(self.id, np.random.choice(chosen_type))
         
 class ReinforcementAgent(Agent):
-    epsilon = 0.95
 
-    def __init__(self, id, color, name, model, biases, training_file=None): 
+    def __init__(self, id, color, name, model, biases, epsilon, _train, training_file=None): 
         super().__init__(id, color, name)
+        self._train = _train
         self.biases = biases
+        self.epsilon = 0.95
         self.nn = model
         self.optimizer = torch.optim.Adam(self.nn.parameters(), lr=1e-3)
 
@@ -41,7 +42,7 @@ class ReinforcementAgent(Agent):
         highest_rating = float('-inf')
         best_action = None
         
-        if np.random.rand() > ReinforcementAgent.epsilon: 
+        if np.random.rand() > self.epsilon: 
             action_types = [key for key in legal_actions.keys() if legal_actions[key]]
             actions = legal_actions[np.random.choice(action_types)]
             best_action = np.random.choice(actions)
@@ -68,7 +69,7 @@ class ReinforcementAgent(Agent):
         loss = nn.MSELoss()
 
         for indx, game_state in enumerate(episode):
-            state_tensor = torch.tensor([game_state.get_board_piece_state()], dtype=torch.float)
+            state_tensor = torch.tensor([game_state.get_board_piece_state(self.id)], dtype=torch.float)
  
             target = max(episode_value*0.3, episode_value*(indx/len(episode)), key=abs)
             prediction = self.nn(state_tensor)
@@ -80,7 +81,7 @@ class ReinforcementAgent(Agent):
             self.optimizer.step()
 
     def state_eval(self, game_state): 
-        board_state = game_state.get_board_piece_state()
+        board_state = game_state.get_board_piece_state(self.id)
 
         if self.id == 0: 
             #print([bias(self.id, game_state) for bias in self.biases])
