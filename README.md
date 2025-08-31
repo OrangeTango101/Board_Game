@@ -1,0 +1,103 @@
+
+<h1>Making a Board Game</h1>
+
+<h2>Description</h2>
+Project consists of a 2-player chance/strategy board game I invented. The game is played on an 11x11 board and the objective is to occupy the opponents spawn on the other end of the board. A player accomplishes this by placing, moving, and rolling their pieces through the rules dictated below. A user can additionally train and play against reinforcment learning agents which use a pytorch neural network model.
+
+
+<h2>Languages and Utilities Used</h2>
+
+- <b>Python</b> 
+- <b>PyTorch</b>
+- <b>NumPy</b>
+- <b>Pygame</b>
+
+<h2>Definitions, Rules, & Controls</h2>
+
+<h3>Definitions</h3>
+
+- <b>Piece Reserve</b>
+  - The number of pieces a player has available to place
+  - Each player starts with 6 pieces in reserve
+ 
+- <b>Spawn</b>
+  - The only positon on the board where a player can place their pieces
+  - A spawn is occupied if a piece is located at its position 
+  - A player wins by occupying the opponents spawn
+  - Represented by a circle in the player's color
+    
+- <b>Piece</b>
+  - The tokens each player can place, move, and roll 
+  - A piece becomes innactive if it is rolled or is part of a snake that is moved 
+  - Represented by the player's color and text indicating a value between 1-6
+ 
+- <b>Snake</b>
+  - A chain of adjacent pieces that all belong to the same player
+  - The perimeter of a snake are all the grid positions that are immediately adjacent
+  - A snake is innactive if two of its pieces are rolled or a piece is moved 
+ 
+- <b>Spawn Snake</b>
+  - A type of snake that has a piece located in its own player's spawn
+
+<h3>Rules</h3>
+
+- <b>Placements</b>
+  - Pieces can be placed in a player's spawn or on the perimeter of a spawn snake (see definition above)
+  - A player can only make 3 placements a turn
+  - A player can only make placements if their piece reserve is > 0
+ 
+- <b>Rolls</b>
+  - Rolling a piece randomly selects its value between 1-6
+  - A piece can only be rolled if it is active
+ 
+- <b>Movements</b>
+  - A piece can only be moved if it is adjacent to exactly one other piece
+  - A piece can only be moved to a position in its snake's perimeter
+  - A piece can only be moved if exactly one piece in its snake has been rolled
+  - A piece can be moved onto an enemy piece only if its value is >= the enemy piece's value
+ 
+<h3>Controls</h3>
+
+
+
+
+<h2>Program walk-through:</h2>
+
+<p align="center">
+Launch the utility: <br/>
+<img src="https://i.imgur.com/62TgaWL.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+<br />
+<br />
+Select the disk:  <br/>
+<img src="https://i.imgur.com/tcTyMUE.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+<br />
+<br />
+Enter the number of passes: <br/>
+<img src="https://i.imgur.com/nCIbXbg.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+<br />
+<br />
+Confirm your selection:  <br/>
+<img src="https://i.imgur.com/cdFHBiU.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+<br />
+<br />
+Wait for process to complete (may take some time):  <br/>
+<img src="https://i.imgur.com/JL945Ga.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+<br />
+<br />
+Sanitization complete:  <br/>
+<img src="https://i.imgur.com/K71yaM2.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+<br />
+<br />
+Observe the wiped disk:  <br/>
+<img src="https://i.imgur.com/AeZkvFQ.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+</p>
+
+<!--
+ ```diff
+- text in red
++ text in green
+! text in orange
+# text in gray
+@@ text in purple (and bold)@@
+```
+--!>
