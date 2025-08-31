@@ -2,7 +2,7 @@
 <h1>Making A Board Game</h1>
 
 <h2>Description</h2>
-The project consists of a 2-player chance/strategy board game I invented. The game is played on an 11x11 board and the objective is to occupy the opponents spawn on the other end of the board. A player accomplishes this by placing, moving, and rolling their pieces through the rules dictated below. A user can additionally train and play against reinforcment learning agents which use a pytorch neural network model.
+The project consists of a 2-player chance/strategy board game I invented. The game is played on an 11x11 board and the objective is to occupy the opponent's spawn on the other end of the board. A player accomplishes this by placing, moving, and rolling their pieces through the rules dictated below. A user can additionally train and play against reinforcment learning agents using a pytorch nn model.
 
 
 <h2>Languages and Utilities Used</h2>
@@ -12,7 +12,7 @@ The project consists of a 2-player chance/strategy board game I invented. The ga
 - <b>NumPy</b>
 - <b>Pygame</b>
 
-<h2>Definitions, Rules, & Controls</h2>
+<h2>Definitions, Rules, and Controls</h2>
 
 <h3>Definitions</h3>
 
@@ -66,17 +66,14 @@ The project consists of a 2-player chance/strategy board game I invented. The ga
   - Attempts to select a piece to move if none has already been selected
   - Attempts to move a piece if one has already been selected
  
-- <b>Left Arrow Key<b>
+- <b>Left Arrow Key</b>
   - Will undo the last move 
  
 - <b>Space Bar</b>
   - Will toggle the visual display during agent training
  
-- <b>Up arrow key</b>
-  - Increases the time delay between agent actions
- 
-- <b>Down arrow key</b>
-  - Decreases the time delay between agent actions 
+- <b>Up/Down Arrow Key</b>
+  - Increases/Decreases the time delay between agent actions
 
 
 <!--
