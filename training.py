@@ -12,10 +12,7 @@ running = True
 pygame.init()
 
 '''
-defensive model: "model_0_20250831-002705.pth"
 highly trained offense: "model_1_20250828-214128.pth"
-
-
 '''
 
 model1 = SimpleGameNN()
