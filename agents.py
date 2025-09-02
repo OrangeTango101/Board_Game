@@ -22,11 +22,12 @@ class RandomAgent(Agent):
         
 class ReinforcementAgent(Agent):
 
-    def __init__(self, id, color, name, model, biases, epsilon, _train, training_file=None): 
+    def __init__(self, id, color, name, model, biases, epsilon, _train, enemy_learning, training_file=None): 
         super().__init__(id, color, name)
         self._train = _train
+        self.enemy_learning = enemy_learning
         self.biases = biases
-        self.epsilon = 0.95
+        self.epsilon = epsilon
         self.nn = model
         self.optimizer = torch.optim.Adam(self.nn.parameters(), lr=1e-3)
 
@@ -63,13 +64,13 @@ class ReinforcementAgent(Agent):
 
         self.run_action(best_action)
         
-    def train(self, episode, episode_value): 
+    def train(self, episode, episode_value, perspective): 
         if not episode: 
             episode = self.episode
         loss = nn.MSELoss()
 
         for indx, game_state in enumerate(episode):
-            state_tensor = torch.tensor([game_state.get_board_piece_state(self.id)], dtype=torch.float)
+            state_tensor = torch.tensor([game_state.get_board_piece_state(perspective)], dtype=torch.float)
  
             target = max(episode_value*0.3, episode_value*(indx/len(episode)), key=abs)
             prediction = self.nn(state_tensor)
@@ -82,10 +83,6 @@ class ReinforcementAgent(Agent):
 
     def state_eval(self, game_state): 
         board_state = game_state.get_board_piece_state(self.id)
-
-        if self.id == 0: 
-            #print([bias(self.id, game_state) for bias in self.biases])
-            ...
 
         return self.nn(torch.tensor([board_state], dtype=torch.float)).item()+sum([bias(self.id, game_state) for bias in self.biases])
     
@@ -112,11 +109,6 @@ class ReinforcementAgent(Agent):
     
     def snakes_bias(player, game_state):
         return len(game_state[player]["snake_dict"])*3
-
-    def flip_episode_perspective(episode): 
-        for game_state in episode: 
-            game_state.flip_perspective()
-        return episode
     
     def save_model(self): 
         timestamp = time.strftime("%Y%m%d-%H%M%S")

@@ -14,8 +14,8 @@ class Game:
     show_display = True
 
     initial_state = {
-                        0: {"spawn_pos": (5,0), "num_pieces": 6, "num_placements": 3, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)},
-                        1: {"spawn_pos": (5,0), "num_pieces": 6, "num_placements": 3, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)} 
+                        0: {"spawn_pos": (5,1), "num_pieces": 2, "num_placements": 3, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)},
+                        1: {"spawn_pos": (5,1), "num_pieces": 2, "num_placements": 3, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)} 
                     }
 
     def initialize_game(players): 
@@ -26,8 +26,8 @@ class Game:
 
         Game.game_state = GameState(copy.deepcopy(Game.initial_state)) 
         Game.state_history = []
-        Game.rounds = 0
         Game.winner = None
+        Game.rounds = 0
         Game.players = players
         Game.player_turn = 0 
         Game.active_player = Game.get_active_player()
@@ -337,7 +337,7 @@ class GameState:
     def get_board_piece_state(self, player): 
         state = []
         state.extend(self.get_board_state(player))
-        state.extend([self.entire_state[0]["num_pieces"], self.entire_state[1]["num_pieces"]])
+        state.extend([self.entire_state[player]["num_pieces"], self.entire_state[(player+1)%2]["num_pieces"]])
         return state
     
     def get_board_state(self, player): 
@@ -353,26 +353,6 @@ class GameState:
         new_state = GameState(self.get_data_copy())
         new_state.run_action(player, action)
         return new_state
-    
-    def flip_perspective(self): 
-        x_line = (Game.grid_height//2) 
-        y_line = (Game.grid_width//2)
-
-        #symmetrically flip positions 
-        for player in self.entire_state: 
-            for snake in self.entire_state[player]["snake_dict"]: 
-                new_pieces = [((2*x_line)-piece[0], (2*y_line)-piece[1]) for piece in self.entire_state[player]["snake_dict"][snake]]
-                self.entire_state[player]["snake_dict"][snake] = new_pieces
-            new_piece_dict = defaultdict(list)
-            for piece in self.entire_state[player]["piece_dict"]: 
-                new_piece = ((2*x_line)-piece[0], (2*y_line)-piece[1]) 
-                new_piece_dict[new_piece] = self.entire_state[player]["piece_dict"][piece]
-            self.entire_state[player]["piece_dict"] = new_piece_dict
-
-        #switch player piece data 
-        temp_piece_data = (self.entire_state[0]["snake_dict"], self.entire_state[0]["piece_dict"], self.entire_state[0]["num_pieces"])
-        self.entire_state[0]["snake_dict"], self.entire_state[0]["piece_dict"], self.entire_state[0]["num_pieces"]  = self.entire_state[1]["snake_dict"], self.entire_state[1]["piece_dict"], self.entire_state[1]["num_pieces"]
-        self.entire_state[1]["snake_dict"], self.entire_state[1]["piece_dict"], self.entire_state[1]["num_pieces"] = temp_piece_data
         
     #Helpful Methods 
     def get_data(self):
