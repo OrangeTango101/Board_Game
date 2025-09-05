@@ -21,6 +21,13 @@ class RandomAgent(Agent):
         game_state.run_action(self.id, np.random.choice(chosen_type))
         
 class ReinforcementAgent(Agent):
+    '''
+    A ReinforcementAgent class contains data that determines how it will learn during play.
+    These features can be readily manipulated by the user:  
+        - enemy_learning (bool): if true will train on an enemy's episode after losing 
+        - biases (func): will use these functions to bias its own state_eval method  
+        - epsilon (float): probability that it will choose a random vs greedy action 
+    '''
 
     def __init__(self, id, color, name, model, biases, epsilon, _train, enemy_learning, training_file=None): 
         super().__init__(id, color, name)
@@ -28,7 +35,6 @@ class ReinforcementAgent(Agent):
         self.enemy_learning = enemy_learning
         self.biases = biases
         self.epsilon = epsilon
-        self.depth = 2
         self.nn = model
         self.optimizer = torch.optim.Adam(self.nn.parameters(), lr=0.001)
 
@@ -108,7 +114,7 @@ class ReinforcementAgent(Agent):
             if dist < closest_dist: 
                 closest_dist = dist
 
-        return 0.1/max(closest_dist, 1)
+        return 0.5/max(closest_dist, 1)
     
     def piece_bias(player, game_state): 
         return (game_state.get_total_pieces(player)-game_state.get_total_pieces((player+1)%2))

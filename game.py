@@ -6,6 +6,15 @@ import copy
 import numpy as np
 
 class Game: 
+    '''
+    The Game class is static and contains all the relevant data of the game being played, such as the current players 
+    and game state. By adjusting the values of the initial game state you can alter some basic 
+    parameters of the game. This includes the number of pieces a player starts with and the spawn locations.  
+
+    The Game class also runs the main game loop that gets agent actions, determines the active player, 
+    and displays the game.  
+    '''
+
     display_width = 750
     display_height = 550
     grid_width = 11
@@ -14,10 +23,10 @@ class Game:
     show_display = True
     winner = None
 
-    initial_state = {
-                        0: {"spawn_pos": (5,0), "num_pieces": 6, "num_placements": 3, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)},
-                        1: {"spawn_pos": (5,0), "num_pieces": 6, "num_placements": 3, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)} 
-                    }
+    initial_state = {  
+        0: {"spawn_pos": (5,0), "num_pieces": 6, "num_placements": 3, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)},
+        1: {"spawn_pos": (5,0), "num_pieces": 6, "num_placements": 3, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)} 
+    }
 
     def initialize_game(players): 
         Game.display_screen = pygame.display.set_mode((Game.display_width, Game.display_height))
@@ -33,11 +42,8 @@ class Game:
         Game.player_turn = 0 
         Game.active_player = Game.get_active_player()
 
-        Game.active_player.choose_action(Game.game_state)
-
     def game_loop():
         game_state = Game.game_state
-
         winner = game_state.get_winner()
         if winner is not None: 
             Game.winner = Game.players[winner]
@@ -57,6 +63,11 @@ class Game:
             Game.display_game()
 
     def back_one_step():
+        '''
+        This method, when called, will set the game_state of the current game being played 
+        back by one GameState in the state_history 
+        '''
+
         if Game.state_history:
             Game.state_history.pop()
             if Game.state_history: 
@@ -102,6 +113,9 @@ class Game:
         return Game.players[index]
     
     def print_board_state(board_state): 
+        '''
+        makes a visual print out of board state arg to terminal 
+        '''
         grid = [[0] * Game.grid_width for _ in range(Game.grid_height)]
         for i, num in enumerate(board_state):
             row = i % Game.grid_height
@@ -151,6 +165,24 @@ class Game:
         pygame.display.flip()
 
 class GameState:
+    '''
+    A GameState class contains a dictionary of dictionaries called entire_state that holds all the state data of a game. 
+    It has the format: 
+    entire_state = {  
+        player: {"spawn_pos": (x,y), "num_pieces": int, "num_placements": int, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)},
+        player: {"spawn_pos": (x,y), "num_pieces": int, "num_placements": int, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)} 
+    } 
+    where, 
+    "snake_dict": {snake_id: [piece1, piece2, piece3], ...}
+    "piece_dict": {piece1: [value, is_active, snake_id], ...}
+
+    It is important to note that location data is stored relative to each player. For this reason, players 
+    have the same spawn and can have overlapping pieces. This also means a transformation is performed 
+    every time a player gets the position of enemy pieces.  
+
+    A GameState class has many methods such as run_action and get_actions that manipulate and derive info from state data. 
+    '''
+
     placements_per_turn = 3
 
     def __init__(self, entire_state): 
@@ -172,6 +204,14 @@ class GameState:
         return actions_ls
 
     def get_actions(self, player):
+        '''
+        This method takes a player and returns the legal actions of each of their snakes 
+        Args: 
+            player (int): either player 0 or player 1
+        Returns: 
+            dict: the legal actions of each snake belonging to the player  
+        '''
+
         actions = defaultdict(list)
         player_state = self.entire_state[player]
         snakes = list(player_state["snake_dict"].keys()) + [-1]
@@ -223,6 +263,13 @@ class GameState:
 
     #Make Actions
     def run_action(self, player, action): 
+        '''
+        This method takes a player and action and will change the state data to reflect the action taken
+        Args: 
+            player (int): either player 0 or player 1
+            action (str): encodes the action being taken 
+        '''
+
         action_decode = action.split("-")
         type = action_decode[0]
         if type == "p": 
@@ -290,6 +337,14 @@ class GameState:
             piece_dict[piece][1] = True
 
     def add_piece(self, pos, val, player): 
+        '''
+        This method takes the position and value of a peice and adds it to the data of a given player  
+        Args: 
+            pos (tuple): (x, y) position on board 
+            val (int): value of piece 
+            player (int): either player 0 or player 1
+        '''
+
         snake_dict, piece_dict = self.entire_state[player]["snake_dict"], self.entire_state[player]["piece_dict"]
         connected_snakes = Piece.get_connected_snakes(pos, piece_dict) 
 
@@ -301,6 +356,13 @@ class GameState:
         piece_dict[pos] = [val, False, snake_id]
 
     def remove_piece(self, pos, player): 
+        '''
+        This method takes the position of a peice and removes it from the data of a given player  
+        Args: 
+            pos (tuple): (x, y) position on board 
+            player (int): either player 0 or player 1
+        '''
+
         snake_dict, piece_dict = self.entire_state[player]["snake_dict"], self.entire_state[player]["piece_dict"]
         if pos not in piece_dict: 
             return 
@@ -322,7 +384,7 @@ class GameState:
         elif Snake.is_empty(snake_id_to_remove, snake_dict): 
             snake_dict.pop(snake_id_to_remove)
 
-    #Get game features
+    #Game features
     def get_winner(self): 
         for player in self.entire_state: 
             if self.no_actions(player) or self.spawn_occupied(player): 
@@ -355,12 +417,26 @@ class GameState:
     
     #Create States 
     def get_board_piece_state(self, player): 
+        '''
+        This method takes a player and returns a 1-dim list of the values of every peice in the game. 
+        It also adds the "num_pieces" of each player to the end of this list. 
+        Args: 
+            player (int): either player 0 or player 1
+        '''
+
         state = []
         state.extend(self.get_board_state(player))
         state.extend([self.entire_state[player]["num_pieces"], self.entire_state[(player+1)%2]["num_pieces"]])
         return state
     
     def get_board_state(self, player): 
+        '''
+        This method takes a player and returns a 1-dim list of the values of every peice in the game. 
+        Enemy pieces are represented as positive while a given player pieces are negative 
+        Args: 
+            player (int): either player 0 or player 1
+        '''
+
         player_pieces, enemy_pieces = self.entire_state[player]["piece_dict"], self.enemy_piece_dict((player+1)%2)
         grid = [0]*(Game.grid_width*Game.grid_height)
         for piece, data in player_pieces.items(): 
@@ -370,6 +446,16 @@ class GameState:
         return grid
 
     def generate_successor(self, player, action):
+        '''
+        This method takes a player and action and will change the state data to reflect the action taken + 
+        return a deep copy of that new game state 
+        Args: 
+            player (int): either player 0 or player 1
+            action (str): encodes the action being taken 
+        Returns: 
+            new_state (obs): GameState object with changed data 
+        '''
+        
         new_state = GameState(self.get_data_copy())
         new_state.run_action(player, action)
         return new_state
@@ -394,6 +480,14 @@ class GameState:
         return None
     
     def enemy_piece_dict(self, player): 
+        '''
+        This method takes an enemy player and performs a geometric reflection to get the accurate location of their pieces 
+        Args: 
+            player (int): either player 0 or player 1 
+        Returns: 
+            reflected_piece_dict (dict): player pieces that have been geometrically reflected 
+        '''
+
         reflected_piece_dict = defaultdict(list)
         for piece in self.entire_state[player]["piece_dict"]: 
                 new_piece = Piece.reflected(piece)
@@ -404,6 +498,13 @@ class GameState:
         return pos not in self.entire_state[player]["piece_dict"]
  
 class Player: 
+    '''
+    A player class contains basic data about a player including id, color, name, and episode. 
+    An episode is a history of GameState objects that reflect all the actions taken by a player.  
+
+    A player also serves as the parent class of all agents which override the empty choose_action method.
+    Instead of choosing its own actions, it runs actions that it receives from the user.  
+    '''
     
     def __init__(self, id, color, name): 
         self.id = id
@@ -426,9 +527,6 @@ class Player:
 
     def get_inactive_color(self):
         return (min([self.color[0]+200, 255]), min([self.color[1]+200, 255]), min([self.color[2]+200, 255]))
-    
-    def display(self, spawn_pos): 
-        pygame.draw.circle(Game.display_screen, self.color, (spawn_pos[0]*50+25, spawn_pos[1]*50+25), 20, width=1)
 
 class Snake: 
     snake_id = 0 
@@ -522,7 +620,6 @@ class Piece:
         return [(pos[0]+rel_edge[0], pos[1]+rel_edge[1]) for rel_edge in Piece.rel_edge_positions if Game.valid_search_pos((pos[0]+rel_edge[0], pos[1]+rel_edge[1]))]
 
 class Actions:
-
     store_input = None
 
     def click_action(event):
