@@ -46,7 +46,7 @@ will run multiple games that can be used to train reinforcment learning agents.
 
 - <b>How To Win</b>
   - A player wins by occupying the enemy's spawn with one of their own pieces 
-  - A player also wins if the enemy has no snakes nor pieces to place 
+  - A player also wins if the enemy has no pieces to move 
 
 - <b>Placements</b>
   - Pieces can be placed in a player's spawn or on the perimeter of a spawn snake (see definition above)
