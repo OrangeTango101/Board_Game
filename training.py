@@ -7,14 +7,13 @@ from agents import *
 
 class Train:
     train_length = 40000 #in games 
-    game_length = 50 #in rounds 
+    game_length = 100 #in rounds 
+
+    p0_wins = 0
+    p1_wins = 0 
 
     models = [SimpleGameNN(), SimpleGameNN()] 
-    epsilons = [0.6, 0.6]
-
-    '''
-    highly trained offense: "model_1_20250828-214128.pth"
-    '''
+    epsilons = [0.95, 0.95]
 
     def start_new_game(train=True):  
         reinforcement_agent0 = ReinforcementAgent(
@@ -22,9 +21,9 @@ class Train:
             color = (255, 0, 0),
             name = "red", 
             model = Train.models[0], 
-            biases = [ReinforcementAgent.win_bias], 
+            biases = [ReinforcementAgent.win_bias, ReinforcementAgent.dist_bias], 
             epsilon = Train.epsilons[0],
-            _train = True,
+            _train = False,
             enemy_learning = False, 
             training_file = None
         )
@@ -33,9 +32,9 @@ class Train:
             color = (0, 255, 0),
             name = "green", 
             model = Train.models[1], 
-            biases = [ReinforcementAgent.win_bias], 
+            biases = [ReinforcementAgent.win_bias, ReinforcementAgent.dist_bias], 
             epsilon = Train.epsilons[1],
-            _train = True,
+            _train = False,
             enemy_learning = False, 
             training_file = None
         )
@@ -43,6 +42,15 @@ class Train:
         Train.train_length -= 1 
         Train.epsilons[0] = Train.epsilons[0] * 1.00005 if Train.epsilons[0] < 0.9 else Train.epsilons[0]
         Train.epsilons[1] = Train.epsilons[1] * 1.00005 if Train.epsilons[1] < 0.9 else Train.epsilons[1]
+
+        if Game.winner: 
+            if Game.winner == Game.players[0]:
+                Train.p0_wins += 1 
+            if Game.winner == Game.players[1]:
+                Train.p1_wins += 1 
+            iterations = 40000-Train.train_length
+            print(f"Iterations:{iterations} p0:{Train.p0_wins} p1:{Train.p1_wins} Epsilons:{Train.epsilons[0]}, {Train.epsilons[1]}")
+
         if train: 
             Train.train_agents(Game.winner)
 
@@ -51,15 +59,13 @@ class Train:
 
     def train_agents(winner):
         reinforcementAgents = [agent for agent in Game.players if isinstance(agent, ReinforcementAgent)]
-        if winner: 
-            print(f"Iterations:{40000-Train.train_length} Epsilons:{Train.epsilons[0]}, {Train.epsilons[1]}")
 
         for agent in reinforcementAgents: 
             episode_value = 0
             if agent == winner: 
                 episode_value = 1 
             elif winner: 
-                episode_value = 0 
+                episode_value = -1
             if agent._train: 
                 agent.train(None, episode_value, agent.id)
         

@@ -12,10 +12,11 @@ class Game:
     grid_height = 11
     cell_width = 50
     show_display = True
+    winner = None
 
     initial_state = {
-                        0: {"spawn_pos": (5,1), "num_pieces": 2, "num_placements": 3, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)},
-                        1: {"spawn_pos": (5,1), "num_pieces": 2, "num_placements": 3, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)} 
+                        0: {"spawn_pos": (5,0), "num_pieces": 6, "num_placements": 3, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)},
+                        1: {"spawn_pos": (5,0), "num_pieces": 6, "num_placements": 3, "snake_dict": defaultdict(list), "piece_dict": defaultdict(list)} 
                     }
 
     def initialize_game(players): 
@@ -162,22 +163,37 @@ class GameState:
             raise KeyError(f"Key '{key}' not found.")
     
     #Get Actions
+    def get_actions_ls(self, player):
+        actions = self.get_actions(player)
+        actions_ls = []
+        for snake in actions: 
+            actions_ls.extend(actions[snake])
+
+        return actions_ls
+
     def get_actions(self, player):
-        actions = defaultdict(list) 
+        actions = defaultdict(list)
         player_state = self.entire_state[player]
+        snakes = list(player_state["snake_dict"].keys()) + [-1]
 
-        #get placements
-        placement_actions = []
+        for snake in snakes: 
+            actions[snake].extend(self.get_snake_actions(snake, player))
+
+        return actions
+    
+    def get_snake_actions(self, snake, player): 
+        player_state = self.entire_state[player]
+        actions = []
+        if snake == -1: 
+            if player_state["spawn_pos"] not in player_state["piece_dict"] and player_state["num_pieces"] > 0 and player_state["num_placements"] > 0: 
+                return [Actions.get_placement_code(player_state["spawn_pos"])]
+            else: 
+                return []
         if player_state["num_pieces"] > 0 and player_state["num_placements"] > 0: 
-            placement_actions = [Actions.get_placement_code(player_state["spawn_pos"])] if player_state["spawn_pos"] not in player_state["piece_dict"] else self.get_snake_placements(player_state["piece_dict"][player_state["spawn_pos"]][2], player)
-        actions["p"].extend(placement_actions)
-
-        #get movements and rolls
-        for snake in player_state["snake_dict"]:
-            if Snake.is_active(player_state["snake_dict"][snake], player_state["piece_dict"]):
-                actions["m"].extend(self.get_snake_movements(snake, player))
-                actions["r"].extend(self.get_snake_rolls(snake, player))
-
+            actions.extend(self.get_snake_placements(snake, player))
+        if Snake.is_active(player_state["snake_dict"][snake], player_state["piece_dict"]): 
+            actions.extend(self.get_snake_movements(snake, player))
+            actions.extend(self.get_snake_rolls(snake, player))
         return actions
 
     def get_snake_movements(self, snake, player): 
@@ -198,8 +214,12 @@ class GameState:
         return Actions.get_roll_codes([piece for piece in snake_pieces if not piece_dict[piece][1]])
 
     def get_snake_placements(self, snake, player): 
-        snake_pieces, enemy_pieces = self.entire_state[player]["snake_dict"][snake], self.enemy_piece_dict((player+1)%2)
-        return Actions.get_placement_codes(Snake.get_empty_perimeter(snake_pieces, enemy_pieces))
+        player_state = self.entire_state[player]
+        if player_state["spawn_pos"] in player_state["snake_dict"][snake]: 
+            snake_pieces, enemy_pieces = self.entire_state[player]["snake_dict"][snake], self.enemy_piece_dict((player+1)%2)
+            return Actions.get_placement_codes(Snake.get_empty_perimeter(snake_pieces, enemy_pieces))
+        else: 
+            return []
 
     #Make Actions
     def run_action(self, player, action): 
@@ -396,7 +416,7 @@ class Player:
 
     def run_action(self, action): 
         game_state = Game.game_state
-        legal_actions = list(chain.from_iterable(game_state.get_actions(self.id).values()))
+        legal_actions = game_state.get_actions_ls(self.id)
 
         if action in legal_actions: 
             game_state.run_action(self.id, action)
@@ -510,6 +530,8 @@ class Actions:
         selected_cell = Game.coords_to_grid_pos(event.pos) if turn == 0 else Piece.reflected(Game.coords_to_grid_pos(event.pos))
         game_state = Game.game_state
         active_player = Game.active_player
+
+        #print(game_state.get_actions(Game.player_turn))
 
         if event.button == 1: 
             if game_state.pos_empty(turn, selected_cell): 

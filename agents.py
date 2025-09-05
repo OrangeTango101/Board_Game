@@ -28,8 +28,9 @@ class ReinforcementAgent(Agent):
         self.enemy_learning = enemy_learning
         self.biases = biases
         self.epsilon = epsilon
+        self.depth = 2
         self.nn = model
-        self.optimizer = torch.optim.Adam(self.nn.parameters(), lr=1e-3)
+        self.optimizer = torch.optim.Adam(self.nn.parameters(), lr=0.001)
 
         #load training 
         if training_file: 
@@ -40,7 +41,6 @@ class ReinforcementAgent(Agent):
     def choose_action(self, game_state): 
         time.sleep(Agent.action_delay)
         legal_actions = game_state.get_actions(self.id)
-        highest_rating = float('-inf')
         best_action = None
         
         if np.random.rand() > self.epsilon: 
@@ -48,21 +48,32 @@ class ReinforcementAgent(Agent):
             actions = legal_actions[np.random.choice(action_types)]
             best_action = np.random.choice(actions)
         else: 
-            for ls in legal_actions.values(): 
-                for action in ls: 
-                    rating = 0
-                    if action.split("-")[0] == "r": 
-                        projections = [game_state.generate_successor(self.id, droll) for droll in Actions.get_droll_codes(action)]
-                        rating = np.mean([self.state_eval(projection) for projection in projections]) 
-                    else: 
-                        projection = game_state.generate_successor(self.id, action)
-                        rating = self.state_eval(projection)
-                    
-                    if rating > highest_rating: 
-                        highest_rating = rating
-                        best_action = action 
+            best_action = self.best_action_search(game_state)
 
         self.run_action(best_action)
+        
+    def best_action_search(self, game_state):
+        best_action = None
+        legal_actions = game_state.get_actions(self.id)
+        highest_rating = float('-inf')
+        for ls in legal_actions.values(): 
+            for action in ls: 
+                rating = 0
+                if action.split("-")[0] == "r": 
+                    projections = [game_state.generate_successor(self.id, droll) for droll in Actions.get_droll_codes(action)]
+                    rating = np.mean([self.state_eval(projection) for projection in projections]) 
+                else: 
+                    projection = game_state.generate_successor(self.id, action)
+                    rating = self.state_eval(projection)
+                    
+                if rating > highest_rating: 
+                    highest_rating = rating
+                    best_action = action 
+        return best_action
+
+    def state_eval(self, game_state): 
+        board_state = game_state.get_board_piece_state(self.id)
+        return self.nn(torch.tensor([board_state], dtype=torch.float)).item()+sum([bias(self.id, game_state) for bias in self.biases])
         
     def train(self, episode, episode_value, perspective): 
         if not episode: 
@@ -80,29 +91,27 @@ class ReinforcementAgent(Agent):
             l.backward()
 
             self.optimizer.step()
-
-    def state_eval(self, game_state): 
-        board_state = game_state.get_board_piece_state(self.id)
-
-        return self.nn(torch.tensor([board_state], dtype=torch.float)).item()+sum([bias(self.id, game_state) for bias in self.biases])
     
     def win_bias(player, game_state): 
-        if game_state.get_winner() is not None and game_state.get_winner() == player: 
-            return 100000
-        else: 
-            return 0
+        if game_state.get_winner() is not None: 
+            if game_state.get_winner() == player: 
+                return float('inf')
+            else:
+                return -100000
+        return 0
 
     def dist_bias(player, game_state): 
-        closest_dist = 1000000
+        closest_dist = float('inf')
         for piece in game_state[player]["piece_dict"]: 
-            enemy_spawn = game_state[(player+1)%2]["spawn_pos"]
+            enemy_spawn = Piece.reflected(game_state[(player+1)%2]["spawn_pos"])
             dist = abs(enemy_spawn[0]-piece[0])+abs(enemy_spawn[1]-piece[1])
             if dist < closest_dist: 
                 closest_dist = dist
-        return 0.2/max(closest_dist, 1)
+
+        return 0.1/max(closest_dist, 1)
     
     def piece_bias(player, game_state): 
-        return (game_state.get_total_pieces(player)-game_state.get_total_pieces((player+1)%2))*2
+        return (game_state.get_total_pieces(player)-game_state.get_total_pieces((player+1)%2))
     
     def mobility_bias(player, game_state):
         return -game_state.get_num_immobile_snakes(player)/10
