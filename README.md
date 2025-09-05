@@ -76,7 +76,7 @@ The project consists of a 2-player chance/strategy board game I invented. The ga
   - Increases/Decreases the time delay between agent actions
 
 - <b>0/1 Keys</b>
-  - Will save agent1/agent2 training to the working directory  
+  - Will save agent0/agent1 training to the working directory  
 
 
 <!--
