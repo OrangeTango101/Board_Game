@@ -48,6 +48,10 @@ will run multiple games that can be used to train reinforcment learning agents.
   - A player wins by occupying the enemy's spawn with one of their own pieces 
   - A player also wins if the enemy has no pieces to move 
 
+- <b>Taking A Turn</b>
+  - A turn ends when all of a player's snakes are inactive 
+  - A player without any snakes on the board must create a snake to end their turn 
+
 - <b>Placements</b>
   - Pieces can be placed in a player's spawn or on the perimeter of a spawn snake (see definition above)
   - A player can only make 3 placements a turn
@@ -56,6 +60,7 @@ will run multiple games that can be used to train reinforcment learning agents.
 - <b>Rolls</b>
   - Rolling a piece randomly selects its value between 1-6
   - A piece can only be rolled if it is active
+  - Rolling a piece makes it innactive
  
 - <b>Movements</b>
   - A piece can only be moved if it is adjacent to exactly one other piece
