@@ -2,7 +2,7 @@
 <h1>Making A Board Game</h1>
 
 <h2>Description</h2>
-The project consists of a 2-player chance/strategy board game I created The game is played on an 11x11 board and the objective is to occupy the opponent's spawn on the other end of the board. A player accomplishes this by placing, moving, and rolling their pieces through the rules dictated below. A user can additionally train and play against reinforcment learning agents using a pytorch nn model.
+The project consists of a 2-player chance/strategy board game I created. The game is played on an 11x11 board and the objective is to occupy the opponent's spawn on the other end of the board. A player accomplishes this by placing, moving, and rolling their pieces through the rules dictated below. A user can additionally train and play against reinforcment learning agents using a pytorch nn model.
 
 <h2>How To Use The Program</h2>
 The file "run.py" will start an instance of the game when run and will terminate once a player wins. The file "training.py"
